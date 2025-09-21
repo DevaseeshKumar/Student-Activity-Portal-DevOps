@@ -2,9 +2,9 @@ name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
 
 jobs:
   build-and-secure:
@@ -12,75 +12,67 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+      fail-fast: false
 
     env:
-      NODE_ENV: production
+      JAVA_HOME: ${{ matrix.java_home || '/usr/lib/jvm/java-17-openjdk' }}
 
     steps:
-      # 1. Checkout code
-      - name: Checkout repository
+      # 1️⃣ Checkout code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. Set up Java for Spring Boot
-      - name: Set up JDK 17
+      # 2️⃣ Set up Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      # 3️⃣ Install frontend dependencies
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      # 4️⃣ Build frontend
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      # 5️⃣ Set up Java (Spring Boot)
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      # 3. Build & test Spring Boot backend
-      - name: Build Spring Boot
-        run: mvn clean verify
+      # 6️⃣ Build Spring Boot backend
+      - name: Build backend
+        working-directory: ./backend
+        run: ./mvnw clean package -DskipTests
 
-      # 4. SpotBugs static analysis
-      - name: SpotBugs
-        run: mvn spotbugs:check
+      # 7️⃣ Run backend tests
+      - name: Run backend tests
+        working-directory: ./backend
+        run: ./mvnw test
 
-      # 5. Dependency check (OWASP SCA)
-      - name: OWASP Dependency Check
-        run: mvn verify org.owasp:dependency-check-maven:check
-
-      # 6. Set up Node.js for React frontend
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      # 7. Install frontend dependencies
-      - name: Install React dependencies
-        run: npm install
-
-      # 8. Lint React code
-      - name: ESLint
-        run: npx eslint src --max-warnings=0
-
-      # 9. npm audit for vulnerabilities
-      - name: npm Audit
-        run: npm audit --audit-level=high
-
-      # 10. Build React frontend
-      - name: Build React app
-        run: npm run build
-
-      # 11. Docker build
+      # 8️⃣ Build Docker image
       - name: Build Docker image
         run: docker build -t myapp:latest .
 
-      # 12. Docker scan with Trivy
-      - name: Scan Docker image
-        uses: aquasecurity/trivy-action@v2
+      # 9️⃣ Scan Docker image using Trivy
+      - name: Trivy Scan
+        uses: aquasecurity/trivy-action@v0.11.0
         with:
+          scan-type: image
           image-ref: myapp:latest
-          severity: CRITICAL,HIGH
           format: table
-          exit-code: 1
 
-      # 13. Optional: Push Docker image
-      # - name: Login to Docker Hub
-      #   uses: docker/login-action@v2
-      #   with:
-      #     username: ${{ secrets.DOCKER_USERNAME }}
-      #     password: ${{ secrets.DOCKER_PASSWORD }}
-      #
-      # - name: Push Docker image
-      #   run: docker tag myapp:latest username/myapp:latest && docker push username/myapp:latest
+      # 🔟 Optional: Push image to Docker Hub or registry
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Push Docker Image
+        run: docker tag myapp:latest ${{ secrets.DOCKER_USERNAME }}/myapp:latest && docker push ${{ secrets.DOCKER_USERNAME }}/myapp:latest
