@@ -1,0 +1,86 @@
+name: DevSecOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-secure:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    env:
+      NODE_ENV: production
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Set up Java for Spring Boot
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # 3. Build & test Spring Boot backend
+      - name: Build Spring Boot
+        run: mvn clean verify
+
+      # 4. SpotBugs static analysis
+      - name: SpotBugs
+        run: mvn spotbugs:check
+
+      # 5. Dependency check (OWASP SCA)
+      - name: OWASP Dependency Check
+        run: mvn verify org.owasp:dependency-check-maven:check
+
+      # 6. Set up Node.js for React frontend
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      # 7. Install frontend dependencies
+      - name: Install React dependencies
+        run: npm install
+
+      # 8. Lint React code
+      - name: ESLint
+        run: npx eslint src --max-warnings=0
+
+      # 9. npm audit for vulnerabilities
+      - name: npm Audit
+        run: npm audit --audit-level=high
+
+      # 10. Build React frontend
+      - name: Build React app
+        run: npm run build
+
+      # 11. Docker build
+      - name: Build Docker image
+        run: docker build -t myapp:latest .
+
+      # 12. Docker scan with Trivy
+      - name: Scan Docker image
+        uses: aquasecurity/trivy-action@v2
+        with:
+          image-ref: myapp:latest
+          severity: CRITICAL,HIGH
+          format: table
+          exit-code: 1
+
+      # 13. Optional: Push Docker image
+      # - name: Login to Docker Hub
+      #   uses: docker/login-action@v2
+      #   with:
+      #     username: ${{ secrets.DOCKER_USERNAME }}
+      #     password: ${{ secrets.DOCKER_PASSWORD }}
+      #
+      # - name: Push Docker image
+      #   run: docker tag myapp:latest username/myapp:latest && docker push username/myapp:latest
