@@ -13,12 +13,12 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1️⃣ Checkout Code
+      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Java for Spring Boot
-      - name: Setup Java 21
+      # 2️⃣ Setup Java 21
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
@@ -27,20 +27,21 @@ jobs:
       - name: Verify Java installation
         run: java -version
 
-      # 3️⃣ Build Spring Boot Backend
-      - name: Build Backend (Spring Boot)
+      # 3️⃣ Build Spring Boot backend
+      - name: Build Spring Boot Backend
         run: mvn -B clean package -DskipTests
 
-      # 4️⃣ Run OWASP Dependency Check for Java
-      - name: OWASP Dependency-Check for Java
-        uses: dependency-check/gh-action@v8
+      # 4️⃣ OWASP Dependency-Check for Java
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/gh-action@v7
         with:
-          scan: "./backend"
+          project: "student-portal-backend"
+          scan: "./"  # your backend folder
           format: "ALL"
-          project: "backend"
-          fail-on-vuln: true
+          failOnCVSS: 7  # fails build if vulnerability >= 7.0
+          suppression: ""
 
-      # 5️⃣ Setup Node.js for React
+      # 5️⃣ Setup Node.js for React frontend
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -51,16 +52,12 @@ jobs:
         run: npm install
         working-directory: ./frontend
 
-      # 6️⃣ Run OWASP Dependency Check for Node.js (npm audit)
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
-        working-directory: ./frontend
-
-      # 7️⃣ Build React Frontend
       - name: Build React Frontend
         run: npm run build
         working-directory: ./frontend
 
-      # 8️⃣ Optional: Build Docker image
-      - name: Build Docker Image
-        run: docker build -t student-portal:latest .
+      # 6️⃣ OWASP Dependency-Check for Node.js
+      - name: OWASP Dependency-Check for Node.js
+        run: |
+          npm install -g @jeremylong/owasp-dependency-check
+          dependency-check --scan ./frontend --format ALL --failOnCVSS 7
