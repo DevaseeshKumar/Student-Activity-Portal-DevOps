@@ -13,57 +13,39 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      # 1️⃣ Checkout code (official stable version)
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      # ----------------------
-      # Backend: Java / Maven
-      # ----------------------
-      - name: Setup JDK
-        uses: actions/setup-java@v3
         with:
-          distribution: temurin
-          java-version: 21
+          fetch-depth: 0
 
-      - name: Build Spring Boot backend
+      # 2️⃣ Build Spring Boot backend using Maven Docker
+      - name: Build Backend
         shell: pwsh
         run: |
-          $env:JAVA_HOME = "C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk\21.0.8-9.0\x64"
-          $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
-          mvn clean package -DskipTests
+          docker run --rm -v "${{ github.workspace }}:/app" -w /app maven:3.9.2-eclipse-temurin-21 \
+            mvn clean package -DskipTests
 
-      # ----------------------
-      # OWASP Dependency-Check (Java)
-      # ----------------------
+      # 3️⃣ Run OWASP Dependency-Check in Docker
       - name: OWASP Dependency-Check
-        uses: dependency-check/gh-action@v7
-        with:
-          project: "student-portal-backend"
-          scan: "./"           # backend folder
-          format: "ALL"
-          failOnCVSS: 7       # fail if vulnerability >= 7.0
+        shell: pwsh
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/src" owasp/dependency-check:latest \
+            --project "student-portal-backend" \
+            --scan /src \
+            --format ALL \
+            --failOnCVSS 7
 
-      # ----------------------
-      # Frontend: Node.js / React
-      # ----------------------
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: ./frontend/package-lock.json
+      # 4️⃣ Build React frontend using Node.js Docker
+      - name: Build Frontend
+        shell: pwsh
+        run: |
+          docker run --rm -v "${{ github.workspace }}/frontend:/app" -w /app node:20 \
+            sh -c "npm ci && npm run build"
 
-      - name: Install frontend dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: ./frontend
-        run: npm run build
-
-      # ----------------------
-      # Optional: Run frontend security audit
-      # ----------------------
-      - name: Run npm audit
-        working-directory: ./frontend
-        run: npm audit --audit-level=high
+      # 5️⃣ Optional: NPM Audit
+      - name: Frontend Security Audit
+        shell: pwsh
+        run: |
+          docker run --rm -v "${{ github.workspace }}/frontend:/app" -w /app node:20 \
+            sh -c "npm audit --audit-level=high"
