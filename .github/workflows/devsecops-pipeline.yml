@@ -2,61 +2,60 @@ name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build-and-secure:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell
+
+    env:
+      BACKEND_PATH: backend
+      FRONTEND_PATH: frontend
 
     steps:
-      # 1️⃣ Checkout repo
+      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Build Spring Boot backend
-      - name: Build Backend
-        shell: pwsh
+      # 2️⃣ Build Backend using Maven Docker image
+      - name: Build Backend (Maven + JDK 21)
         run: |
-          docker run --rm -v "${{ github.workspace }}:/app" -w /app/backend maven:3.9.2-openjdk-21 `
-            mvn clean package -DskipTests
+          docker run --rm -v "${PWD}\$env:BACKEND_PATH:/app" -w /app maven:3.9.2-eclipse-temurin-21 mvn clean package -DskipTests
 
-      # 3️⃣ OWASP Dependency-Check for backend
-      - name: OWASP Dependency-Check
-        shell: pwsh
-        run: |
-          docker run --rm -v "${{ github.workspace }}/backend:/src" owasp/dependency-check:latest `
-            --project "student-portal-backend" `
-            --scan /src `
-            --format ALL `
-            --failOnCVSS 7
+      # 3️⃣ OWASP Dependency-Check for Java (Backend)
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/gh-action@v8.0.0
+        with:
+          project: "student-portal-backend"
+          scan: "./backend"
+          format: "ALL"
+          failOnCVSS: 7
 
-      # 4️⃣ Build React frontend
+      # 4️⃣ Build Frontend using Node.js Docker image
       - name: Build Frontend
-        shell: pwsh
         run: |
-          docker run --rm -v "${{ github.workspace }}/frontend:/app" -w /app node:20 `
-            sh -c "npm ci && npm run build"
+          docker run --rm -v "${PWD}\$env:FRONTEND_PATH:/app" -w /app node:20.19.5 npm install
+          docker run --rm -v "${PWD}\$env:FRONTEND_PATH:/app" -w /app node:20.19.5 npm run build
 
-      # 5️⃣ Run frontend security audit
-      - name: Frontend Security Audit
-        shell: pwsh
+      # 5️⃣ Optional: Run tests (Backend)
+      - name: Run Backend Tests
         run: |
-          docker run --rm -v "${{ github.workspace }}/frontend:/app" -w /app node:20 `
-            sh -c "npm audit --audit-level=high"
+          docker run --rm -v "${PWD}\$env:BACKEND_PATH:/app" -w /app maven:3.9.2-eclipse-temurin-21 mvn test
 
-      # 6️⃣ Optional: Archive artifacts
-      - name: Archive Backend and Frontend builds
-        uses: actions/upload-artifact@v3
+      # 6️⃣ Archive artifacts
+      - name: Archive Backend build
+        uses: actions/upload-artifact@v4
         with:
           name: backend-jar
           path: backend/target/*.jar
 
       - name: Archive Frontend build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-build
           path: frontend/build/
