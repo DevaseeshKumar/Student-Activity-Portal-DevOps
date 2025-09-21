@@ -31,7 +31,16 @@ jobs:
       - name: Build Backend (Spring Boot)
         run: mvn -B clean package -DskipTests
 
-      # 4️⃣ Setup Node.js for React
+      # 4️⃣ Run OWASP Dependency Check for Java
+      - name: OWASP Dependency-Check for Java
+        uses: dependency-check/gh-action@v8
+        with:
+          scan: "./backend"
+          format: "ALL"
+          project: "backend"
+          fail-on-vuln: true
+
+      # 5️⃣ Setup Node.js for React
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -42,19 +51,16 @@ jobs:
         run: npm install
         working-directory: ./frontend
 
+      # 6️⃣ Run OWASP Dependency Check for Node.js (npm audit)
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        working-directory: ./frontend
+
+      # 7️⃣ Build React Frontend
       - name: Build React Frontend
         run: npm run build
         working-directory: ./frontend
 
-      # 5️⃣ Optional: Build Docker image
+      # 8️⃣ Optional: Build Docker image
       - name: Build Docker Image
         run: docker build -t student-portal:latest .
-
-      # 6️⃣ Optional: Run Trivy scan on Docker image
-      - name: Scan Docker Image with Trivy
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          image-ref: student-portal:latest
-          format: table
-          exit-code: 1
-          ignore-unfixed: true
