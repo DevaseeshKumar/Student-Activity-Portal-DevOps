@@ -1,4 +1,4 @@
-name: DevSecOps Pipeline
+name: DevSecOps CI/CD Pipeline
 
 on:
   push:
@@ -13,39 +13,50 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1️⃣ Checkout code (official stable version)
+      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
-      # 2️⃣ Build Spring Boot backend using Maven Docker
+      # 2️⃣ Build Spring Boot backend
       - name: Build Backend
         shell: pwsh
         run: |
-          docker run --rm -v "${{ github.workspace }}:/app" -w /app maven:3.9.2-eclipse-temurin-21 \
+          docker run --rm -v "${{ github.workspace }}:/app" -w /app/backend maven:3.9.2-openjdk-21 `
             mvn clean package -DskipTests
 
-      # 3️⃣ Run OWASP Dependency-Check in Docker
+      # 3️⃣ OWASP Dependency-Check for backend
       - name: OWASP Dependency-Check
         shell: pwsh
         run: |
-          docker run --rm -v "${{ github.workspace }}:/src" owasp/dependency-check:latest \
-            --project "student-portal-backend" \
-            --scan /src \
-            --format ALL \
+          docker run --rm -v "${{ github.workspace }}/backend:/src" owasp/dependency-check:latest `
+            --project "student-portal-backend" `
+            --scan /src `
+            --format ALL `
             --failOnCVSS 7
 
-      # 4️⃣ Build React frontend using Node.js Docker
+      # 4️⃣ Build React frontend
       - name: Build Frontend
         shell: pwsh
         run: |
-          docker run --rm -v "${{ github.workspace }}/frontend:/app" -w /app node:20 \
+          docker run --rm -v "${{ github.workspace }}/frontend:/app" -w /app node:20 `
             sh -c "npm ci && npm run build"
 
-      # 5️⃣ Optional: NPM Audit
+      # 5️⃣ Run frontend security audit
       - name: Frontend Security Audit
         shell: pwsh
         run: |
-          docker run --rm -v "${{ github.workspace }}/frontend:/app" -w /app node:20 \
+          docker run --rm -v "${{ github.workspace }}/frontend:/app" -w /app node:20 `
             sh -c "npm audit --audit-level=high"
+
+      # 6️⃣ Optional: Archive artifacts
+      - name: Archive Backend and Frontend builds
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+
+      - name: Archive Frontend build
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/build/
