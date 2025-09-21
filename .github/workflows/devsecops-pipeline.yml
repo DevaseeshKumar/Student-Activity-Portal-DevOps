@@ -13,55 +13,57 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup JDK 21
-      - name: Set up JDK 21
+      # ----------------------
+      # Backend: Java / Maven
+      # ----------------------
+      - name: Setup JDK
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 21
 
-      # 3️⃣ Setup Node.js
-      - name: Set up Node.js
+      - name: Build Spring Boot backend
+        shell: pwsh
+        run: |
+          $env:JAVA_HOME = "C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk\21.0.8-9.0\x64"
+          $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+          mvn clean package -DskipTests
+
+      # ----------------------
+      # OWASP Dependency-Check (Java)
+      # ----------------------
+      - name: OWASP Dependency-Check
+        uses: dependency-check/gh-action@v7
+        with:
+          project: "student-portal-backend"
+          scan: "./"           # backend folder
+          format: "ALL"
+          failOnCVSS: 7       # fail if vulnerability >= 7.0
+
+      # ----------------------
+      # Frontend: Node.js / React
+      # ----------------------
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: "npm"
+          cache: npm
+          cache-dependency-path: ./frontend/package-lock.json
 
-      # 4️⃣ Build backend with Maven
-      - name: Build Spring Boot Backend
-        working-directory: ./backend
-        run: mvn clean package -DskipTests
-
-      # 5️⃣ Run OWASP Dependency-Check
-      - name: Run OWASP Dependency-Check
-        run: |
-          docker pull owasp/dependency-check:latest
-          docker run --rm \
-            -v ${{ github.workspace }}/backend:/src \
-            -v ${{ github.workspace }}/dependency-check-reports:/report \
-            owasp/dependency-check:latest \
-            --scan /src \
-            --format "ALL" \
-            --project "student-portal-backend" \
-            --out /report \
-            --failOnCVSS 7
-
-      # 6️⃣ Build frontend
       - name: Install frontend dependencies
         working-directory: ./frontend
-        run: npm install
+        run: npm ci
 
-      - name: Build React frontend
+      - name: Build frontend
         working-directory: ./frontend
         run: npm run build
 
-      # 7️⃣ Build Docker images
-      - name: Build Docker image (backend)
-        run: docker build -t student-portal-backend ./backend
-
-      - name: Build Docker image (frontend)
-        run: docker build -t student-portal-frontend ./frontend
+      # ----------------------
+      # Optional: Run frontend security audit
+      # ----------------------
+      - name: Run npm audit
+        working-directory: ./frontend
+        run: npm audit --audit-level=high
