@@ -37,14 +37,18 @@ jobs:
         run: mvn clean package -DskipTests
 
       # 5️⃣ Run OWASP Dependency-Check
-      - name: OWASP Dependency-Check
-        uses: dependency-check/gh-action@v6.5.3
-        with:
-          project: "student-portal-backend"
-          scan: "./backend"
-          format: "ALL"
-          failOnCVSS: 7
-          suppression: ""
+      - name: Run OWASP Dependency-Check
+        run: |
+          docker pull owasp/dependency-check:latest
+          docker run --rm \
+            -v ${{ github.workspace }}/backend:/src \
+            -v ${{ github.workspace }}/dependency-check-reports:/report \
+            owasp/dependency-check:latest \
+            --scan /src \
+            --format "ALL" \
+            --project "student-portal-backend" \
+            --out /report \
+            --failOnCVSS 7
 
       # 6️⃣ Build frontend
       - name: Install frontend dependencies
