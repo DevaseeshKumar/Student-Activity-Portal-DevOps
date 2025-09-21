@@ -1,10 +1,12 @@
-name: DevSecOps CI/CD Pipeline
+name: DevSecOps Pipeline
 
 on:
   push:
     branches:
       - main
   pull_request:
+    branches:
+      - main
 
 jobs:
   build-and-secure:
@@ -12,67 +14,76 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-      fail-fast: false
-
-    env:
-      JAVA_HOME: ${{ matrix.java_home || '/usr/lib/jvm/java-17-openjdk' }}
 
     steps:
-      # 1️⃣ Checkout code
+      # Checkout repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Set up Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      # 3️⃣ Install frontend dependencies
-      - name: Install frontend dependencies
-        working-directory: ./frontend
-        run: npm install
-
-      # 4️⃣ Build frontend
-      - name: Build frontend
-        working-directory: ./frontend
-        run: npm run build
-
-      # 5️⃣ Set up Java (Spring Boot)
+      # Setup Java (for Spring Boot)
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
-      # 6️⃣ Build Spring Boot backend
-      - name: Build backend
-        working-directory: ./backend
-        run: ./mvnw clean package -DskipTests
-
-      # 7️⃣ Run backend tests
-      - name: Run backend tests
-        working-directory: ./backend
-        run: ./mvnw test
-
-      # 8️⃣ Build Docker image
-      - name: Build Docker image
-        run: docker build -t myapp:latest .
-
-      # 9️⃣ Scan Docker image using Trivy
-      - name: Trivy Scan
-        uses: aquasecurity/trivy-action@v0.11.0
+      # Setup Node.js (for React frontend)
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          scan-type: image
-          image-ref: myapp:latest
-          format: table
+          node-version: 20
 
-      # 🔟 Optional: Push image to Docker Hub or registry
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
+      # Cache Maven for Spring Boot
+      - name: Cache Maven
+        uses: actions/cache@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
-      - name: Push Docker Image
-        run: docker tag myapp:latest ${{ secrets.DOCKER_USERNAME }}/myapp:latest && docker push ${{ secrets.DOCKER_USERNAME }}/myapp:latest
+      # Cache Node modules for React
+      - name: Cache Node Modules
+        uses: actions/cache@v3
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # Install backend dependencies & build
+      - name: Build Spring Boot Backend
+        run: mvn clean package -DskipTests
+
+      # Install frontend dependencies & build
+      - name: Build React Frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      # Run backend unit tests
+      - name: Run Spring Boot Tests
+        run: mvn test
+
+      # Install Trivy for security scanning
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+
+      # Security scan of backend & frontend
+      - name: Security Scan with Trivy
+        run: trivy fs --exit-code 1 --severity HIGH,CRITICAL .
+
+      # Optional: Build Docker image for deployment
+      - name: Build Docker Image
+        run: |
+          docker build -t student-portal-app .
+
+      # Optional: Push Docker image to registry
+      # - name: Docker Login
+      #   uses: docker/login-action@v2
+      #   with:
+      #     username: ${{ secrets.DOCKER_USERNAME }}
+      #     password: ${{ secrets.DOCKER_PASSWORD }}
+      # - run: docker push student-portal-app:latest
