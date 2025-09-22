@@ -8,22 +8,10 @@ services:
       - "8080:8080"
     depends_on:
       - mysql
-      - sonarqube
     environment:
-      SPRING_APPLICATION_NAME: StudentActivityPortal
-      SERVER_PORT: 8080
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/activityportal
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Devaseesh*2005
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_JPA_SHOW_SQL: true
-      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQL8Dialect
-      SPRING_MAIL_HOST: smtp.gmail.com
-      SPRING_MAIL_PORT: 587
-      SPRING_MAIL_USERNAME: thorodinsonuru@gmail.com
-      SPRING_MAIL_PASSWORD: shrr vjnz eqgp osnm
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: true
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: true
     restart: unless-stopped
 
   frontend:
@@ -34,8 +22,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
     command: npm run dev -- --host
     depends_on:
       - backend
@@ -53,13 +39,24 @@ services:
       - mysql_data:/var/lib/mysql
     restart: unless-stopped
 
-  sonarqube:
-    image: sonarqube:latest
-    container_name: sonarqube
+  # Prometheus (metrics collection)
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
     ports:
-      - "9000:9000"
-    environment:
-      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+
+  # Grafana (dashboards)
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
     restart: unless-stopped
 
 volumes:
