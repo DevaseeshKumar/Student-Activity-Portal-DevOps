@@ -2,8 +2,7 @@ pipeline {
     agent any
 
     environment {
-        // SonarQube environment
-        SONARQUBE_SCANNER = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+        SONAR_HOST_URL = "http://localhost:9000"
     }
 
     stages {
@@ -30,9 +29,9 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                dir('backend') {
-                    withSonarQubeEnv('SONARQUBE') {
-                        bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN"
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                    dir('backend') {
+                        bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=%SONAR_HOST_URL% -Dsonar.login=%SONAR_TOKEN%"
                     }
                 }
             }

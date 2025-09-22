@@ -8,6 +8,7 @@ services:
       - "8080:8080"
     depends_on:
       - mysql
+      - sonarqube
     environment:
       SPRING_APPLICATION_NAME: StudentActivityPortal
       SERVER_PORT: 8080
@@ -29,7 +30,13 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5173:80" # container serves static files on port 80
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: npm run dev -- --host
     depends_on:
       - backend
     restart: unless-stopped
@@ -44,6 +51,15 @@ services:
       MYSQL_DATABASE: activityportal
     volumes:
       - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+  sonarqube:
+    image: sonarqube:latest
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
     restart: unless-stopped
 
 volumes:
