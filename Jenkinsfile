@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_COMPOSE_FILE = 'docker-compose.yml'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -15,29 +19,18 @@ pipeline {
             }
         }
 
-        stage('Build Backend') {
+        stage('Build Backend Docker Image') {
             steps {
-                dir('SpringBootRestAPIJPAProject') {
-                    bat 'mvn clean package -DskipTests'
+                dir('backend') {
+                    bat 'docker build -t student-backend:latest .'
                 }
             }
         }
 
-        stage('Build Frontend') {
+        stage('Build Frontend Docker Image') {
             steps {
-                dir('student-frontend') {
-                    // Checking Node.js and npm versions
-                    bat 'node -v'
-                    bat 'npm -v'
-
-                    // Verifying frontend directory contents
-                    bat 'dir'
-
-                    // Installing npm dependencies
-                    bat 'npm install'
-                    
-                    // Running the build
-                    bat 'npm run build'
+                dir('frontend') {
+                    bat 'docker build -t student-frontend:latest .'
                 }
             }
         }
@@ -45,8 +38,8 @@ pipeline {
         stage('Start Services with Docker Compose') {
             steps {
                 script {
-                    bat 'docker-compose up -d --build'
-                    bat 'docker-compose logs'
+                    bat "docker-compose -f ${env.DOCKER_COMPOSE_FILE} up -d --build"
+                    bat "docker-compose -f ${env.DOCKER_COMPOSE_FILE} logs"
                 }
             }
         }
