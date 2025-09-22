@@ -6,6 +6,12 @@ pipeline {
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                deleteDir() // start fresh
+            }
+        }
+
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git'
@@ -22,7 +28,9 @@ pipeline {
         stage('Build Backend Docker Image') {
             steps {
                 dir('backend') {
-                    bat 'docker build -t student-backend:latest .'
+                    script {
+                        bat 'docker build -t student-backend:latest .'
+                    }
                 }
             }
         }
@@ -30,7 +38,9 @@ pipeline {
         stage('Build Frontend Docker Image') {
             steps {
                 dir('frontend') {
-                    bat 'docker build -t student-frontend:latest .'
+                    script {
+                        bat 'docker build -t student-frontend:latest .'
+                    }
                 }
             }
         }
