@@ -17,7 +17,7 @@ pipeline {
 
         stage('Build Backend') {
             steps {
-                dir('SpringBootRestAPIJPAProject') {
+                dir('backend') { // ✅ points to correct folder
                     bat 'mvn clean package -DskipTests'
                 }
             }
@@ -25,18 +25,15 @@ pipeline {
 
         stage('Build Frontend') {
             steps {
-                dir('student-frontend') {
-                    // Checking Node.js and npm versions
+                dir('frontend') { // ✅ points to correct folder
+                    // Check Node.js + npm
                     bat 'node -v'
                     bat 'npm -v'
 
-                    // Verifying frontend directory contents
-                    bat 'dir'
-
-                    // Installing npm dependencies
+                    // Install dependencies
                     bat 'npm install'
-                    
-                    // Running the build
+
+                    // Build frontend
                     bat 'npm run build'
                 }
             }
@@ -46,7 +43,7 @@ pipeline {
             steps {
                 script {
                     bat 'docker-compose up -d --build'
-                    bat 'docker-compose logs'
+                    bat 'docker-compose ps'
                 }
             }
         }
@@ -54,10 +51,10 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline executed successfully!'
+            echo '✅ Pipeline executed successfully!'
         }
         failure {
-            echo 'Pipeline failed. Please check logs.'
+            echo '❌ Pipeline failed. Please check logs.'
         }
         cleanup {
             cleanWs()
