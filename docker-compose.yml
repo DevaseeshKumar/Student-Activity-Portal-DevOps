@@ -29,13 +29,16 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5173:5173"
-    stdin_open: true
+      - "5173:5173"   # random free host port → container:5173
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     environment:
-      CHOKIDAR_USEPOLLING: true
+      - CHOKIDAR_USEPOLLING=true
+    command: npm run dev -- --host
     depends_on:
       - backend
-
+    restart: unless-stopped
   mysql:
     image: mysql:8.0
     container_name: mysql
