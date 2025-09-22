@@ -37,8 +37,8 @@ pipeline {
         stage('Start Services with Docker Compose') {
             steps {
                 script {
-                    bat 'docker-compose -f docker-compose.prod.yml up -d --build'
-                    bat 'docker-compose -f docker-compose.prod.yml ps'
+                    bat 'docker-compose -f docker-compose.yml up -d --build'
+                    bat 'docker-compose -f docker-compose.yml ps'
                 }
             }
         }
