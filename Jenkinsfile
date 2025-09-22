@@ -17,7 +17,7 @@ pipeline {
 
         stage('Build Backend') {
             steps {
-                dir('backend') { // ✅ points to correct folder
+                dir('backend') {
                     bat 'mvn clean package -DskipTests'
                 }
             }
@@ -25,15 +25,10 @@ pipeline {
 
         stage('Build Frontend') {
             steps {
-                dir('frontend') { // ✅ points to correct folder
-                    // Check Node.js + npm
+                dir('frontend') {
                     bat 'node -v'
                     bat 'npm -v'
-
-                    // Install dependencies
                     bat 'npm install'
-
-                    // Build frontend
                     bat 'npm run build'
                 }
             }
@@ -42,8 +37,8 @@ pipeline {
         stage('Start Services with Docker Compose') {
             steps {
                 script {
-                    bat 'docker-compose up -d --build'
-                    bat 'docker-compose ps'
+                    bat 'docker-compose -f docker-compose.prod.yml up -d --build'
+                    bat 'docker-compose -f docker-compose.prod.yml ps'
                 }
             }
         }

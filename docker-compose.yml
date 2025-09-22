@@ -29,16 +29,11 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5173:5173"   # random free host port → container:5173
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-    command: npm run dev -- --host
+      - "5173:80" # container serves static files on port 80
     depends_on:
       - backend
     restart: unless-stopped
+
   mysql:
     image: mysql:8.0
     container_name: mysql
