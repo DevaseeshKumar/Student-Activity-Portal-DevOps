@@ -9,6 +9,7 @@
         <version>3.5.3</version>
         <relativePath/>
     </parent>
+<packaging>war</packaging>
 
     <groupId>com.act</groupId>
     <artifactId>backend</artifactId>
