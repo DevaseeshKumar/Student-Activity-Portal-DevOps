@@ -2,108 +2,58 @@ pipeline {
     agent any
 
     environment {
-        SONAR_TOKEN = credentials('SONAR-TOKEN') // Jenkins credential ID for SonarQube
-        GIT_CREDENTIALS = 'github-token'  // Jenkins Git credential ID
+        DOCKER_COMPOSE_FILE = 'docker-compose.yml'
     }
 
     stages {
-        stage('Checkout SCM') {
+        stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git',
-                    credentialsId: "${env.GIT_CREDENTIALS}"
+                git branch: 'main', url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git'
             }
         }
 
-        stage('Write .env') {
+        stage('Verify Docker Installation') {
             steps {
-                script {
-                    writeFile file: '.env', text: "SONAR_TOKEN=${env.SONAR_TOKEN}"
-                }
+                bat 'docker --version'
+                bat 'docker-compose --version'
             }
         }
 
-        stage('SonarQube Analysis - Backend') {
+        stage('Build Backend Docker Image') {
             steps {
                 dir('backend') {
-                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                        withSonarQubeEnv('MySonarQube') { // Replace with your SonarQube server name
-                            bat 'mvn clean verify sonar:sonar'
-                        }
-                    }
+                    bat 'docker build -t student-backend:latest .'
                 }
             }
         }
 
-        stage('Snyk Scan - Backend') {
+        stage('Build Frontend Docker Image') {
             steps {
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    dir('backend') {
-                        bat 'snyk test --all-projects'
-                    }
+                dir('frontend') {
+                    bat 'docker build -t student-frontend:latest .'
                 }
             }
         }
 
-        stage('Snyk Scan - Frontend') {
+        stage('Start Services with Docker Compose') {
             steps {
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    dir('frontend') {
-                        bat 'snyk test --all-projects'
-                    }
-                }
-            }
-        }
-
-        stage('Generate Snyk HTML Report') {
-            steps {
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    bat 'snyk-to-html -o snyk-report.html'
-                }
-            }
-        }
-
-        stage('Start Backend & Frontend') {
-            parallel {
-                stage('Start Backend') {
-                    steps {
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                            dir('backend') {
-                                bat 'mvn spring-boot:run'
-                            }
-                        }
-                    }
-                }
-                stage('Start Frontend') {
-                    steps {
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                            dir('frontend') {
-                                bat 'npm start'
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Container Security Scan') {
-            steps {
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    bat 'docker scan myapp:latest'
+                script {
+                    bat "docker-compose -f ${env.DOCKER_COMPOSE_FILE} up -d --build"
+                    bat "docker-compose -f ${env.DOCKER_COMPOSE_FILE} logs"
                 }
             }
         }
     }
 
     post {
-        always {
-            echo "📂 Archiving Snyk HTML reports..."
-            archiveArtifacts artifacts: 'snyk-report.html', allowEmptyArchive: true
-            cleanWs()
+        success {
+            echo 'Pipeline executed successfully!'
         }
-
         failure {
-            echo "❌ Pipeline failed. Check Jenkins logs."
+            echo 'Pipeline failed. Please check logs.'
+        }
+        cleanup {
+            cleanWs()
         }
     }
 }
