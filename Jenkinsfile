@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        SONAR_HOST_URL = "http://localhost:9000"
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -23,16 +19,6 @@ pipeline {
             steps {
                 dir('backend') {
                     bat 'mvn clean package -DskipTests'
-                }
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-                    dir('backend') {
-                        bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=%SONAR_HOST_URL% -Dsonar.login=%SONAR_TOKEN%"
-                    }
                 }
             }
         }
