@@ -6,6 +6,8 @@ pipeline {
         BACKEND_DIR = 'backend'
         FRONTEND_DIR = 'frontend'
         REPORT_DIR = 'reports'
+        SONAR_HOST_URL = 'http://localhost:9000'
+        SONAR_TOKEN = credentials('SONAR_TOKEN') // Replace with your Jenkins credential ID
     }
 
     stages {
@@ -34,44 +36,49 @@ SPRING_DATASOURCE_PASSWORD=Devaseesh*2005
             }
         }
 
+        stage('SonarQube Analysis - Backend') {
+            steps {
+                dir("${env.BACKEND_DIR}") {
+                    withSonarQubeEnv('SonarQube') { // Replace 'SonarQube' with your Jenkins SonarQube server name
+                        bat "mvn clean verify sonar:sonar -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.login=${SONAR_TOKEN}"
+                    }
+                }
+            }
+        }
+
         stage('Snyk Scan - Backend') {
             steps {
-                script {
-                    bat "mkdir ${REPORT_DIR} || exit 0"
-                    bat "cd /d ${env.BACKEND_DIR} && mvn org.sonarsource.scanner.maven:sonar-maven-plugin:scan || exit /b 0"
-                    bat "cd /d ${env.BACKEND_DIR} && npx snyk test --json 1>..\\${REPORT_DIR}\\backend-snyk.json || exit /b 0"
+                dir("${env.BACKEND_DIR}") {
+                    bat "npm install || exit /b 0" // in case Snyk needs Node
+                    bat "npx snyk test --json 1>..\\${REPORT_DIR}\\backend-snyk.json || exit /b 0"
                 }
             }
         }
 
         stage('Snyk Scan - Frontend') {
             steps {
-                script {
-                    bat "cd /d ${env.FRONTEND_DIR} && npm install"
-                    bat "cd /d ${env.FRONTEND_DIR} && npx snyk test --json 1>..\\${REPORT_DIR}\\frontend-snyk.json || exit /b 0"
+                dir("${env.FRONTEND_DIR}") {
+                    bat "npm install"
+                    bat "npx snyk test --json 1>..\\${REPORT_DIR}\\frontend-snyk.json || exit /b 0"
                 }
             }
         }
 
         stage('Generate Snyk HTML Report') {
             steps {
-                script {
-                    echo '📄 Generating Snyk HTML report...'
-                    bat "mkdir ${REPORT_DIR} || exit 0"
-                    bat "npx snyk-to-html -i ${REPORT_DIR}\\backend-snyk.json -o ${REPORT_DIR}\\backend-snyk.html || exit /b 0"
-                    bat "npx snyk-to-html -i ${REPORT_DIR}\\frontend-snyk.json -o ${REPORT_DIR}\\frontend-snyk.html || exit /b 0"
-                    echo '✅ Snyk HTML report generated at reports\\backend-snyk.html and reports\\frontend-snyk.html'
-                }
+                echo '📄 Generating Snyk HTML report...'
+                bat "mkdir ${REPORT_DIR} || exit 0"
+                bat "npx snyk-to-html -i ${REPORT_DIR}\\backend-snyk.json -o ${REPORT_DIR}\\backend-snyk.html || exit /b 0"
+                bat "npx snyk-to-html -i ${REPORT_DIR}\\frontend-snyk.json -o ${REPORT_DIR}\\frontend-snyk.html || exit /b 0"
+                echo '✅ Snyk HTML report generated at reports\\backend-snyk.html and reports\\frontend-snyk.html'
             }
         }
 
         stage('Start Backend & Frontend') {
             steps {
-                script {
-                    echo '🚀 Starting development environment with Docker Compose...'
-                    bat 'docker compose -f docker-compose.yml down || exit 0'
-                    bat 'docker compose -f docker-compose.yml up --build -d'
-                }
+                echo '🚀 Starting development environment with Docker Compose...'
+                bat 'docker compose -f docker-compose.yml down || exit 0'
+                bat 'docker compose -f docker-compose.yml up --build -d'
             }
         }
 
