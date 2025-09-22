@@ -1,12 +1,9 @@
-# Use JDK 21
-FROM eclipse-temurin:21-jdk
+FROM openjdk:21-jdk-slim
+
 WORKDIR /app
 
-# Copy source code
-COPY . .
+COPY target/*.war app.war
 
-# Expose port for Spring Boot
 EXPOSE 8080
 
-# Run Spring Boot app in dev mode
-CMD ["mvn", "spring-boot:run"]
+ENTRYPOINT ["java", "-jar", "app.war"]

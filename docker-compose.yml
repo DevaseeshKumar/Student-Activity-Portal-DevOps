@@ -1,19 +1,23 @@
-version: '3.8'
-
 services:
   backend:
     build:
       context: ./backend
     ports:
       - "8080:8080"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/activityportal
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: Devaseesh*2005
     depends_on:
       - mysql
-    volumes:
-      - ./backend:/app
+    environment:
+      - SPRING_APPLICATION_NAME=StudentActivityPortal
+      - SERVER_PORT=8080
+      - SPRING_DATASOURCE_DRIVER-CLASS-NAME=com.mysql.cj.jdbc.Driver
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/activityportal
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=Devaseesh*2005
+      - SPRING_JPA_HIBERNATE_DDL-AUTO=update
+      - SPRING_JPA_SHOW-SQL=true
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.MySQLDialect
+      - SPRING_MVC_VIEW_PREFIX=/
+      - SPRING_MVC_VIEW_SUFFIX=.jsp
     restart: unless-stopped
 
   frontend:
@@ -21,17 +25,15 @@ services:
       context: ./frontend
     ports:
       - "5173:5173"
+    stdin_open: true
     environment:
-      CHOKIDAR_USEPOLLING: "true"
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    restart: unless-stopped
 
   mysql:
     image: mysql:8.0
+    container_name: mysql
     ports:
       - "3307:3306"
     environment:

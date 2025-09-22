@@ -1,53 +1,52 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_COMPOSE_FILE = 'docker-compose.yml'
-    }
-
     stages {
-        stage('Clean Workspace') {
+        stage('Checkout') {
             steps {
-                deleteDir()
+                git branch: 'main', url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git'
             }
         }
 
-        stage('Checkout SCM') {
-            steps {
-                git branch: 'main', 
-                    url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git'
-            }
-        }
-
-        stage('Verify Docker') {
+        stage('Verify Docker Installation') {
             steps {
                 bat 'docker --version'
                 bat 'docker-compose --version'
             }
         }
 
-        stage('Build Backend Image') {
+        stage('Build Backend') {
             steps {
-                dir('backend') {
-                    bat 'docker build -t student-backend:latest .'
+                dir('SpringBootRestAPIJPAProject') {
+                    bat 'mvn clean package -DskipTests'
                 }
             }
         }
 
-        stage('Build Frontend Image') {
+        stage('Build Frontend') {
             steps {
-                dir('frontend') {
-                    bat 'docker build -t student-frontend:latest .'
+                dir('student-frontend') {
+                    // Checking Node.js and npm versions
+                    bat 'node -v'
+                    bat 'npm -v'
+
+                    // Verifying frontend directory contents
+                    bat 'dir'
+
+                    // Installing npm dependencies
+                    bat 'npm install'
+                    
+                    // Running the build
+                    bat 'npm run build'
                 }
             }
         }
 
-        stage('Start Services') {
+        stage('Start Services with Docker Compose') {
             steps {
                 script {
-                    bat "docker-compose -f ${env.DOCKER_COMPOSE_FILE} down"
-                    bat "docker-compose -f ${env.DOCKER_COMPOSE_FILE} up -d --build"
-                    bat "docker-compose -f ${env.DOCKER_COMPOSE_FILE} logs --tail=50"
+                    bat 'docker-compose up -d --build'
+                    bat 'docker-compose logs'
                 }
             }
         }
@@ -55,12 +54,12 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline executed successfully!'
+            echo 'Pipeline executed successfully!'
         }
         failure {
-            echo '❌ Pipeline failed. Check the logs above.'
+            echo 'Pipeline failed. Please check logs.'
         }
-        always {
+        cleanup {
             cleanWs()
         }
     }
