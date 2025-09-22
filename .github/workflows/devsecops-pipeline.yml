@@ -8,7 +8,11 @@ on:
 
 jobs:
   build-and-secure:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell
+
     env:
       BACKEND_PATH: backend
       FRONTEND_PATH: frontend
@@ -21,63 +25,38 @@ jobs:
       # 2️⃣ Build Backend using Maven Docker image
       - name: Build Backend (Maven + JDK 21)
         run: |
-          docker run --rm \
-            -v "$PWD/${BACKEND_PATH}:/app" \
-            -w /app \
-            maven:3.9.2-eclipse-temurin-21 mvn clean package -DskipTests
+          docker run --rm -v "${PWD}\${{ env.BACKEND_PATH }}:/app" -w /app \
+            maven:3.9.9-eclipse-temurin-21 mvn clean package -DskipTests
 
-      # 3️⃣ OWASP Dependency-Check for Backend
+      # 3️⃣ OWASP Dependency-Check for Java (Backend)
       - name: Run OWASP Dependency-Check
         run: |
-          docker run --rm \
-            -v "$PWD/${BACKEND_PATH}:/src" \
-            -v "$PWD/dependency-check-data:/usr/share/dependency-check/data" \
-            -v "$PWD/dependency-check-report:/report" \
+          docker run --rm -v "${PWD}\${{ env.BACKEND_PATH }}:/src" \
             owasp/dependency-check:latest \
-            --project "student-portal-backend" \
-            --scan /src \
-            --format "ALL" \
-            --out /report \
-            --failOnCVSS 7
-
-      - name: Upload Dependency-Check Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-check-report
-          path: dependency-check-report/
+            --scan /src --format "ALL" --project "student-portal-backend" --failOnCVSS 7
 
       # 4️⃣ Build Frontend using Node.js Docker image
       - name: Build Frontend
         run: |
-          docker run --rm \
-            -v "$PWD/${FRONTEND_PATH}:/app" \
-            -w /app \
-            node:20.19.0 bash -c "npm install && npm run build"
+          docker run --rm -v "${PWD}\${{ env.FRONTEND_PATH }}:/app" -w /app \
+            node:20.19.0 npm install
+          docker run --rm -v "${PWD}\${{ env.FRONTEND_PATH }}:/app" -w /app \
+            node:20.19.0 npm run build
 
-      # 5️⃣ Frontend Security Audit
-      - name: Run npm audit
-        run: |
-          docker run --rm \
-            -v "$PWD/${FRONTEND_PATH}:/app" \
-            -w /app \
-            node:20.19.0 npm audit --audit-level=high || true
-
-      # 6️⃣ Run Backend Tests
+      # 5️⃣ Run Backend Tests
       - name: Run Backend Tests
         run: |
-          docker run --rm \
-            -v "$PWD/${BACKEND_PATH}:/app" \
-            -w /app \
-            maven:3.9.2-eclipse-temurin-21 mvn test
+          docker run --rm -v "${PWD}\${{ env.BACKEND_PATH }}:/app" -w /app \
+            maven:3.9.9-eclipse-temurin-21 mvn test
 
-      # 7️⃣ Archive build artifacts
-      - name: Archive Backend JAR
+      # 6️⃣ Archive artifacts
+      - name: Archive Backend build
         uses: actions/upload-artifact@v4
         with:
           name: backend-jar
           path: backend/target/*.jar
 
-      - name: Archive Frontend Build
+      - name: Archive Frontend build
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
