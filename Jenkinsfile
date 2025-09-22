@@ -14,7 +14,7 @@ pipeline {
         stage('Clone Repository') {
             steps {
                 git credentialsId: 'your-github-credentials-id', 
-                    url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal.git', 
+                    url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git', 
                     branch: 'main'
             }
         }
