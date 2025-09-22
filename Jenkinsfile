@@ -2,45 +2,35 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE_NAME = 'student-activity-portal'
-        BACKEND_DIR = 'backend'
-        FRONTEND_DIR = 'frontend'
-        REPORT_DIR = 'reports'
-        SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_TOKEN = credentials('SONAR_TOKEN') // Replace with your Jenkins credential ID
+        SONAR_TOKEN = credentials('SONAR-TOKEN') // Replace with your Jenkins credential ID for SonarQube
+        GIT_CREDENTIALS = 'github-token'  // Replace with your Jenkins Git credential ID
     }
 
     stages {
-        stage('Clone Repository') {
+        stage('Checkout SCM') {
             steps {
-                git credentialsId: 'your-github-credentials-id', 
-                    url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git', 
-                    branch: 'main'
+                git branch: 'main',
+                    url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git',
+                    credentialsId: "${env.GIT_CREDENTIALS}"
             }
         }
 
         stage('Write .env') {
             steps {
-                writeFile file: '.env', text: '''\
-MONGODB_URL=mongodb+srv://ELMS:ELMS@cluster0.uqtzdbr.mongodb.net/elms?retryWrites=true&w=majority&appName=Cluster0
-PORT=8000
-EMAIL_USER=thorodinsonuru@gmail.com
-EMAIL_PASS=qzerfjxnvoeupsgp
-FRONTEND_URL=http://localhost:5173
-SESSION_SECRET=elms-secret-key
-NODE_ENV=development
-SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/activityportal
-SPRING_DATASOURCE_USERNAME=root
-SPRING_DATASOURCE_PASSWORD=Devaseesh*2005
-'''
+                script {
+                    writeFile file: '.env', text: "SONAR_TOKEN=${env.SONAR_TOKEN}"
+                }
             }
         }
 
         stage('SonarQube Analysis - Backend') {
             steps {
-                dir("${env.BACKEND_DIR}") {
-                    withSonarQubeEnv('SonarQube') { // Replace 'SonarQube' with your Jenkins SonarQube server name
-                        bat "mvn clean verify sonar:sonar -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.login=${SONAR_TOKEN}"
+                dir('backend') {
+                    // Wrap with catchError to prevent pipeline from stopping
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        withSonarQubeEnv('MySonarQube') { // Replace 'MySonarQube' with your configured server name
+                            bat 'mvn clean verify sonar:sonar'
+                        }
                     }
                 }
             }
@@ -48,58 +38,61 @@ SPRING_DATASOURCE_PASSWORD=Devaseesh*2005
 
         stage('Snyk Scan - Backend') {
             steps {
-                dir("${env.BACKEND_DIR}") {
-                    bat "npm install || exit /b 0" // in case Snyk needs Node
-                    bat "npx snyk test --json 1>..\\${REPORT_DIR}\\backend-snyk.json || exit /b 0"
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    dir('backend') {
+                        bat 'snyk test --all-projects'
+                    }
                 }
             }
         }
 
         stage('Snyk Scan - Frontend') {
             steps {
-                dir("${env.FRONTEND_DIR}") {
-                    bat "npm install"
-                    bat "npx snyk test --json 1>..\\${REPORT_DIR}\\frontend-snyk.json || exit /b 0"
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    dir('frontend') {
+                        bat 'snyk test --all-projects'
+                    }
                 }
             }
         }
 
         stage('Generate Snyk HTML Report') {
             steps {
-                echo '📄 Generating Snyk HTML report...'
-                bat "mkdir ${REPORT_DIR} || exit 0"
-                bat "npx snyk-to-html -i ${REPORT_DIR}\\backend-snyk.json -o ${REPORT_DIR}\\backend-snyk.html || exit /b 0"
-                bat "npx snyk-to-html -i ${REPORT_DIR}\\frontend-snyk.json -o ${REPORT_DIR}\\frontend-snyk.html || exit /b 0"
-                echo '✅ Snyk HTML report generated at reports\\backend-snyk.html and reports\\frontend-snyk.html'
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    bat 'snyk-to-html -o snyk-report.html'
+                }
             }
         }
 
         stage('Start Backend & Frontend') {
             steps {
-                echo '🚀 Starting development environment with Docker Compose...'
-                bat 'docker compose -f docker-compose.yml down || exit 0'
-                bat 'docker compose -f docker-compose.yml up --build -d'
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    parallel(
+                        backend: { dir('backend') { bat 'mvn spring-boot:run' } },
+                        frontend: { dir('frontend') { bat 'npm start' } }
+                    )
+                }
             }
         }
 
         stage('Container Security Scan') {
             steps {
-                echo '🛡️ Container security scan placeholder (Trivy/Clair can be added here later)'
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    bat 'docker scan myapp:latest'
+                }
             }
         }
     }
 
     post {
         always {
-            echo '📂 Archiving Snyk HTML reports...'
-            archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
-        }
-        failure {
-            echo '❌ Pipeline failed. Check Jenkins logs.'
+            echo "📂 Archiving Snyk HTML reports..."
+            archiveArtifacts artifacts: 'snyk-report.html', allowEmptyArchive: true
             cleanWs()
         }
-        success {
-            echo '✅ Pipeline completed successfully!'
+
+        failure {
+            echo "❌ Pipeline failed. Check Jenkins logs."
         }
     }
 }
