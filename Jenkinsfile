@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        // SonarQube environment
+        SONARQUBE_SCANNER = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -19,6 +24,16 @@ pipeline {
             steps {
                 dir('backend') {
                     bat 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                dir('backend') {
+                    withSonarQubeEnv('SONARQUBE') {
+                        bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN"
+                    }
                 }
             }
         }
