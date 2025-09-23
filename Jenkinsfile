@@ -21,17 +21,21 @@ pipeline {
         stage('Dependency Vulnerability Scan') {
             steps {
                 script {
-                    // Run OWASP Dependency-Check
+                    // Ensure report directory exists
+                    bat "mkdir ${REPORT_DIR} || exit 0"
+
+                    // Run OWASP Dependency-Check (skip OSS Index if no credentials)
                     bat """
                     mvn org.owasp:dependency-check-maven:check ^
                         -Dformat=ALL ^
                         -DoutputDirectory=${REPORT_DIR} ^
                         -Ddependency-check.failOnError=false ^
-                        -Ddependency-check.failBuildOnCVSS=11
+                        -Ddependency-check.failBuildOnCVSS=11 ^
+                        -Ddependency-check.ossindex.skip=true
                     """
-                    
-                    // Archive raw reports
-                    archiveArtifacts artifacts: "${REPORT_DIR}/dependency-check-report.*", fingerprint: true
+
+                    // Archive all generated reports (HTML, PDF, JSON)
+                    archiveArtifacts artifacts: "${REPORT_DIR}/*.*", fingerprint: true
                 }
             }
         }
@@ -39,7 +43,7 @@ pipeline {
         stage('Generate Dashboard') {
             steps {
                 script {
-                    // Convert JSON report into a simple HTML dashboard with charts
+                    // Convert JSON report into a simple HTML dashboard with Chart.js
                     writeFile file: 'target/dashboard.html', text: """
                     <!DOCTYPE html>
                     <html>
@@ -51,7 +55,7 @@ pipeline {
                         <h1>Dependency Vulnerability Summary</h1>
                         <canvas id="vulnChart" width="600" height="400"></canvas>
                         <script>
-                        fetch('${REPORT_DIR}/dependency-check-report.json')
+                        fetch('dependency-check-report/dependency-check-report.json')
                         .then(response => response.json())
                         .then(data => {
                             const severities = { "Critical": 0, "High": 0, "Medium": 0, "Low": 0 };
@@ -90,12 +94,14 @@ pipeline {
                     </body>
                     </html>
                     """
-                    
-                    // Publish HTML dashboard
+
+                    // Publish HTML dashboard in Jenkins
                     publishHTML(target: [
                         reportDir: 'target',
                         reportFiles: 'dashboard.html',
-                        reportName: 'Dependency Vulnerability Dashboard'
+                        reportName: 'Dependency Vulnerability Dashboard',
+                        keepAll: true,
+                        alwaysLinkToLastBuild: true
                     ])
                 }
             }
