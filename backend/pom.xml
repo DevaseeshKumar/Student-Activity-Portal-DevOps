@@ -85,6 +85,15 @@
                 </configuration>
             </plugin>
             <plugin>
+    <groupId>org.owasp</groupId>
+    <artifactId>dependency-check-maven</artifactId>
+    <version>9.2.0</version>
+    <configuration>
+        <format>ALL</format> <!-- Generates HTML, XML, JSON, CSV -->
+        <outputDirectory>${project.build.directory}/dependency-check-report</outputDirectory>
+    </configuration>
+</plugin>
+            <plugin>
     <groupId>org.sonarsource.scanner.maven</groupId>
     <artifactId>sonar-maven-plugin</artifactId>
     <version>3.11.1.2311</version> <!-- stable version -->
