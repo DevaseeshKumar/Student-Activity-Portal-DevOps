@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         REPORT_DIR = 'backend/target/dependency-check-report'
+        DATA_DIR = 'backend/dependency-check-data'
     }
 
     stages {
@@ -23,10 +24,11 @@ pipeline {
 
         stage('Dependency Vulnerability Scan') {
             steps {
-                echo 'Running OWASP Dependency-Check...'
+                echo 'Running OWASP Dependency-Check (local cache)...'
                 dir('backend') {
                     bat """
                         mvn org.owasp:dependency-check-maven:check ^
+                        -DdataDirectory=${DATA_DIR} ^
                         -Dformat=ALL ^
                         -DoutputDirectory=${REPORT_DIR} ^
                         -Ddependency-check.failOnError=false ^
@@ -37,19 +39,17 @@ pipeline {
             }
         }
 
-        stage('Publish Dependency-Check Report') {
+        stage('Publish Dependency-Check HTML Report') {
             steps {
-                echo 'Publishing Dependency-Check results in Jenkins...'
-                dependencyCheckPublisher pattern: "${REPORT_DIR}/dependency-check-report.xml"
-            }
-        }
-
-        stage('Archive HTML Report') {
-            steps {
-                echo 'Archiving Dependency-Check HTML report for visualization...'
-                dir('backend') {
-                    archiveArtifacts artifacts: "${REPORT_DIR}/dependency-check-report.html", fingerprint: true
-                }
+                echo 'Publishing Dependency-Check HTML report in Jenkins...'
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: "${REPORT_DIR}",
+                    reportFiles: 'dependency-check-report.html',
+                    reportName: 'Dependency-Check Report'
+                ])
             }
         }
 
