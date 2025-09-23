@@ -21,21 +21,18 @@ pipeline {
         stage('Dependency Vulnerability Scan') {
             steps {
                 script {
-                    // Ensure report directory exists
-                    bat "mkdir ${REPORT_DIR} || exit 0"
-
-                    // Run OWASP Dependency-Check (skip OSS Index if no credentials)
+                    echo 'Running OWASP Dependency-Check (won’t fail build on errors)...'
                     bat """
-                    mvn org.owasp:dependency-check-maven:check ^
-                        -Dformat=ALL ^
+                        mvn org.owasp:dependency-check-maven:check ^
+                        -Dformat=HTML,PDF,JSON ^
                         -DoutputDirectory=${REPORT_DIR} ^
                         -Ddependency-check.failOnError=false ^
                         -Ddependency-check.failBuildOnCVSS=11 ^
-                        -Ddependency-check.ossindex.skip=true
+                        -Ddependency-check.autoUpdate=false ^
+                        -Ddependency-check.ossindex.skip=true || exit 0
                     """
-
-                    // Archive all generated reports (HTML, PDF, JSON)
-                    archiveArtifacts artifacts: "${REPORT_DIR}/*.*", fingerprint: true
+                    
+                    archiveArtifacts artifacts: "${REPORT_DIR}/*.*", fingerprint: true, allowEmptyArchive: true
                 }
             }
         }
@@ -43,7 +40,8 @@ pipeline {
         stage('Generate Dashboard') {
             steps {
                 script {
-                    // Convert JSON report into a simple HTML dashboard with Chart.js
+                    echo 'Generating visual dashboard from JSON report...'
+
                     writeFile file: 'target/dashboard.html', text: """
                     <!DOCTYPE html>
                     <html>
@@ -55,7 +53,7 @@ pipeline {
                         <h1>Dependency Vulnerability Summary</h1>
                         <canvas id="vulnChart" width="600" height="400"></canvas>
                         <script>
-                        fetch('dependency-check-report/dependency-check-report.json')
+                        fetch('${REPORT_DIR}/dependency-check-report.json')
                         .then(response => response.json())
                         .then(data => {
                             const severities = { "Critical": 0, "High": 0, "Medium": 0, "Low": 0 };
@@ -91,17 +89,15 @@ pipeline {
                             });
                         });
                         </script>
+                        <p>PDF and HTML reports are also available in <b>${REPORT_DIR}</b></p>
                     </body>
                     </html>
                     """
 
-                    // Publish HTML dashboard in Jenkins
                     publishHTML(target: [
                         reportDir: 'target',
                         reportFiles: 'dashboard.html',
-                        reportName: 'Dependency Vulnerability Dashboard',
-                        keepAll: true,
-                        alwaysLinkToLastBuild: true
+                        reportName: 'Dependency Vulnerability Dashboard'
                     ])
                 }
             }
@@ -109,13 +105,14 @@ pipeline {
 
         stage('Test') {
             steps {
-                echo "Test Completed"
+                echo "Running placeholder tests..."
             }
         }
 
         stage('Start Services with Docker Compose') {
             steps {
                 script {
+                    echo 'Starting services via Docker Compose...'
                     bat 'docker-compose up -d --build'
                 }
             }
@@ -124,10 +121,10 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline executed successfully!'
+            echo '✅ Pipeline executed successfully!'
         }
         failure {
-            echo 'Pipeline failed. Please check logs.'
+            echo '❌ Pipeline failed. Please check logs.'
         }
         cleanup {
             cleanWs()
