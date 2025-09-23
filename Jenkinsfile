@@ -22,7 +22,6 @@ pipeline {
             steps {
                 dir('backend') {
                     echo "🔍 Running OWASP Dependency-Check in offline mode..."
-                    // Run scan in offline mode, do not fail pipeline
                     bat """
                     mvn org.owasp:dependency-check-maven:check ^
                     -DdataDirectory=%DEP_CHECK_DIR% ^
@@ -30,15 +29,15 @@ pipeline {
                     -DautoUpdate=false ^
                     -Doffline=true ^
                     -DfailOnError=false ^
-                    -DfailBuildOnCVSS=11 || echo "⚠️ OWASP Dependency-Check failed but continuing..."
+                    -DfailBuildOnCVSS=11 ^
+                    || echo "⚠️ Dependency-Check offline run, report may be incomplete"
                     """
-                    
-                    // Optional PDF conversion if wkhtmltopdf is installed
+                    // Attempt PDF conversion only if HTML exists
                     bat """
-                    if exist wkhtmltopdf (
-                        wkhtmltopdf target/dependency-check-report.html target/dependency-check-report.pdf
+                    if exist target\\dependency-check-report.html (
+                        wkhtmltopdf target\\dependency-check-report.html target\\dependency-check-report.pdf
                     ) else (
-                        echo "⚠️ wkhtmltopdf not found, skipping PDF conversion."
+                        echo "⚠️ HTML report not found, skipping PDF conversion."
                     )
                     """
                 }
@@ -47,7 +46,6 @@ pipeline {
 
         stage('Archive OWASP Reports') {
             steps {
-                // Safely archive reports even if missing
                 archiveArtifacts artifacts: 'backend/target/dependency-check-report.*', fingerprint: true, allowEmptyArchive: true
             }
         }
