@@ -53,6 +53,13 @@ pipeline {
             }
         }
 
+        stage('Publish Dependency-Check Trend') {
+            steps {
+                echo 'Publishing Dependency-Check Trend report in Jenkins...'
+                dependencyCheckPublisher pattern: "${REPORT_DIR}/dependency-check-report.xml"
+            }
+        }
+
         stage('Start Services with Docker Compose') {
             steps {
                 echo 'Starting services via Docker Compose...'
