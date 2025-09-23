@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        // Optional: Add NVD API Key here if available
-        // NVD_API_KEY = credentials('nvd-api-key')
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -23,15 +18,13 @@ pipeline {
             steps {
                 script {
                     echo 'Running OWASP Dependency-Check (build will not fail on errors)...'
-                    // Run scan safely, do not fail build on CVSS issues or update errors
                     bat '''
-                        mvn org.owasp:dependency-check-maven:check \
-                        -Dformat=ALL \
-                        -Ddependency-check.failOnError=false \
-                        -Ddependency-check.failBuildOnCVSS=11 \
+                        mvn org.owasp:dependency-check-maven:check ^
+                        -Dformat=ALL ^
+                        -Ddependency-check.failOnError=false ^
+                        -Ddependency-check.failBuildOnCVSS=11 ^
                         -Ddependency-check.autoUpdate=false || exit 0
                     '''
-                    // Archive any reports generated
                     archiveArtifacts artifacts: 'target/dependency-check-report.*', fingerprint: true, allowEmptyArchive: true
                 }
             }
@@ -40,7 +33,6 @@ pipeline {
         stage('Test') {
             steps {
                 echo "Running tests (placeholder)"
-                // Replace with actual test commands if needed
             }
         }
 
