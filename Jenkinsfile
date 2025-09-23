@@ -1,77 +1,49 @@
 pipeline {
     agent any
 
-    stages {
+    environment {
+        REPORT_DIR = 'target/dependency-check-report'
+    }
 
+    stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out source code...'
                 git branch: 'main', url: 'https://github.com/DevaseeshKumar/StudentActivityPortal_TermPaper.git'
             }
         }
 
         stage('Build Maven Package') {
             steps {
-                echo 'Building Maven package (skipping tests)...'
+                echo 'Building Maven package...'
                 bat 'mvn clean package -DskipTests'
             }
         }
 
         stage('Dependency Vulnerability Scan') {
             steps {
-                script {
-                    echo 'Running OWASP Dependency-Check (HTML, PDF, JSON reports)...'
-
-                    // HTML Report
-                    bat '''
-                        mvn org.owasp:dependency-check-maven:check ^
-                            -Ddependency-check.failOnError=false ^
-                            -Ddependency-check.failBuildOnCVSS=11 ^
-                            -Ddependency-check.autoUpdate=false ^
-                            -Ddependency-check.ossindex.skip=true ^
-                            -Dformat=HTML ^
-                            -DoutputDirectory=target/dependency-check-report
-                    '''
-
-                    // PDF Report
-                    bat '''
-                        mvn org.owasp:dependency-check-maven:check ^
-                            -Ddependency-check.failOnError=false ^
-                            -Ddependency-check.failBuildOnCVSS=11 ^
-                            -Ddependency-check.autoUpdate=false ^
-                            -Ddependency-check.ossindex.skip=true ^
-                            -Dformat=PDF ^
-                            -DoutputDirectory=target/dependency-check-report
-                    '''
-
-                    // JSON Report
-                    bat '''
-                        mvn org.owasp:dependency-check-maven:check ^
-                            -Ddependency-check.failOnError=false ^
-                            -Ddependency-check.failBuildOnCVSS=11 ^
-                            -Ddependency-check.autoUpdate=false ^
-                            -Ddependency-check.ossindex.skip=true ^
-                            -Dformat=JSON ^
-                            -DoutputDirectory=target/dependency-check-report
-                    '''
-
-                    archiveArtifacts artifacts: 'target/dependency-check-report/*.*', fingerprint: true, allowEmptyArchive: true
-                }
+                echo 'Running OWASP Dependency-Check...'
+                bat """
+                    mvn org.owasp:dependency-check-maven:check ^
+                    -Dformat=XML ^
+                    -DoutputDirectory=${REPORT_DIR} ^
+                    -Ddependency-check.failOnError=false ^
+                    -Ddependency-check.failBuildOnCVSS=11 ^
+                    -Ddependency-check.autoUpdate=false
+                """
             }
         }
 
-        stage('Test') {
+        stage('Publish Dependency-Check Report') {
             steps {
-                echo "Running tests (skipped in this pipeline)"
+                echo 'Publishing Dependency-Check results in Jenkins...'
+                dependencyCheckPublisher pattern: "${REPORT_DIR}/dependency-check-report.xml"
             }
         }
 
         stage('Start Services with Docker Compose') {
             steps {
-                script {
-                    echo 'Starting services using Docker Compose...'
-                    bat 'docker-compose up -d --build'
-                }
+                echo 'Starting services via Docker Compose...'
+                bat 'docker-compose up -d --build'
             }
         }
     }
@@ -81,7 +53,7 @@ pipeline {
             echo '✅ Pipeline executed successfully!'
         }
         failure {
-            echo '❌ Pipeline failed. Please check the logs.'
+            echo '❌ Pipeline failed. Check logs!'
         }
         cleanup {
             cleanWs()
