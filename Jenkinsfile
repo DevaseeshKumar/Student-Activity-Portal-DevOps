@@ -2,13 +2,12 @@ pipeline {
     agent any
 
     environment {
-        REPORT_DIR = 'target/dependency-check-report'
+        REPORT_DIR = 'backend/target/dependency-check-report'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                echo 'Cloning repository...'
                 git branch: 'main', url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git'
             }
         }
@@ -16,21 +15,25 @@ pipeline {
         stage('Build Maven Package') {
             steps {
                 echo 'Building Maven package...'
-                bat 'mvn clean package -DskipTests'
+                dir('backend') {
+                    bat 'mvn clean package -DskipTests'
+                }
             }
         }
 
         stage('Dependency Vulnerability Scan') {
             steps {
                 echo 'Running OWASP Dependency-Check...'
-                bat """
-                    mvn org.owasp:dependency-check-maven:check ^
-                    -Dformat=XML ^
-                    -DoutputDirectory=${REPORT_DIR} ^
-                    -Ddependency-check.failOnError=false ^
-                    -Ddependency-check.failBuildOnCVSS=11 ^
-                    -Ddependency-check.autoUpdate=false
-                """
+                dir('backend') {
+                    bat """
+                        mvn org.owasp:dependency-check-maven:check ^
+                        -Dformat=ALL ^
+                        -DoutputDirectory=${REPORT_DIR} ^
+                        -Ddependency-check.failOnError=false ^
+                        -Ddependency-check.failBuildOnCVSS=11 ^
+                        -Ddependency-check.autoUpdate=false
+                    """
+                }
             }
         }
 
@@ -41,34 +44,12 @@ pipeline {
             }
         }
 
-        stage('Generate Vulnerability Chart') {
+        stage('Archive HTML Report') {
             steps {
-                script {
-                    echo 'Parsing Dependency-Check XML for chart...'
-                    def xmlContent = readFile("${REPORT_DIR}/dependency-check-report.xml")
-
-                    // Count vulnerabilities by severity
-                    def critical = (xmlContent =~ /<severity>Critical<\/severity>/).size()
-                    def high     = (xmlContent =~ /<severity>High<\/severity>/).size()
-                    def medium   = (xmlContent =~ /<severity>Medium<\/severity>/).size()
-                    def low      = (xmlContent =~ /<severity>Low<\/severity>/).size()
-
-                    // Write CSV for Jenkins Plot plugin
-                    writeFile file: 'vuln-data.csv', text: """
-Severity,Count
-Critical,${critical}
-High,${high}
-Medium,${medium}
-Low,${low}
-""".trim()
+                echo 'Archiving Dependency-Check HTML report for visualization...'
+                dir('backend') {
+                    archiveArtifacts artifacts: "${REPORT_DIR}/dependency-check-report.html", fingerprint: true
                 }
-
-                // Generate bar chart in Jenkins
-                plot csvFileName: 'vuln-data.csv',
-                     title: 'Dependency Vulnerabilities by Severity',
-                     style: 'bar',
-                     yaxis: 'Count',
-                     group: 'Dependency Vulnerabilities'
             }
         }
 
