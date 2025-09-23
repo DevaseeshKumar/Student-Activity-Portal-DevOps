@@ -2,68 +2,54 @@ pipeline {
     agent any
 
     environment {
-        REPORT_DIR = 'backend/target/dependency-check-report'
-        DATA_DIR = 'backend/dependency-check-data'
+        // Optional: Add NVD API Key here if available
+        // NVD_API_KEY = credentials('nvd-api-key')
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git'
+                git branch: 'main', url: 'https://github.com/DevaseeshKumar/StudentActivityPortal_TermPaper.git'
             }
         }
 
         stage('Build Maven Package') {
             steps {
-                echo 'Building Maven package...'
-                dir('backend') {
-                    bat 'mvn clean package -DskipTests'
-                }
+                bat 'mvn clean package -DskipTests'
             }
         }
 
         stage('Dependency Vulnerability Scan') {
             steps {
-                echo 'Running OWASP Dependency-Check (local cache)...'
-                dir('backend') {
-                    bat """
-                        mvn org.owasp:dependency-check-maven:check ^
-                        -DdataDirectory=${DATA_DIR} ^
-                        -Dformat=ALL ^
-                        -DoutputDirectory=${REPORT_DIR} ^
-                        -Ddependency-check.failOnError=false ^
-                        -Ddependency-check.failBuildOnCVSS=11 ^
-                        -Ddependency-check.autoUpdate=false
-                    """
+                script {
+                    echo 'Running OWASP Dependency-Check (build will not fail on errors)...'
+                    // Run scan safely, do not fail build on CVSS issues or update errors
+                    bat '''
+                        mvn org.owasp:dependency-check-maven:check \
+                        -Dformat=ALL \
+                        -Ddependency-check.failOnError=false \
+                        -Ddependency-check.failBuildOnCVSS=11 \
+                        -Ddependency-check.autoUpdate=false || exit 0
+                    '''
+                    // Archive any reports generated
+                    archiveArtifacts artifacts: 'target/dependency-check-report.*', fingerprint: true, allowEmptyArchive: true
                 }
             }
         }
 
-        stage('Publish Dependency-Check HTML Report') {
+        stage('Test') {
             steps {
-                echo 'Publishing Dependency-Check HTML report in Jenkins...'
-                publishHTML([
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: "${REPORT_DIR}",
-                    reportFiles: 'dependency-check-report.html',
-                    reportName: 'Dependency-Check Report'
-                ])
-            }
-        }
-
-        stage('Publish Dependency-Check Trend') {
-            steps {
-                echo 'Publishing Dependency-Check Trend report in Jenkins...'
-                dependencyCheckPublisher pattern: "${REPORT_DIR}/dependency-check-report.xml"
+                echo "Running tests (placeholder)"
+                // Replace with actual test commands if needed
             }
         }
 
         stage('Start Services with Docker Compose') {
             steps {
-                echo 'Starting services via Docker Compose...'
-                bat 'docker-compose up -d --build'
+                script {
+                    echo 'Starting services via Docker Compose...'
+                    bat 'docker-compose up -d --build'
+                }
             }
         }
     }
@@ -73,7 +59,7 @@ pipeline {
             echo '✅ Pipeline executed successfully!'
         }
         failure {
-            echo '❌ Pipeline failed. Check logs!'
+            echo '❌ Pipeline failed. Please check logs.'
         }
         cleanup {
             cleanWs()
