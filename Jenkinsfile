@@ -1,65 +1,55 @@
 pipeline {
     agent any
-
+    environment {
+        DEP_CHECK_DIR = "backend/target/dependency-check-data"
+    }
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
-                git branch: 'main', url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git'
+                checkout scm
             }
         }
-
         stage('Build Maven Package') {
             steps {
                 dir('backend') {
-                    bat 'mvn clean package -DskipTests'
+                    bat "mvn clean package -DskipTests"
                 }
             }
         }
-
         stage('Dependency Vulnerability Scan') {
             steps {
                 dir('backend') {
-                    script {
-                        echo '🔍 Running OWASP Dependency-Check (offline mode)...'
-                        bat '''
-                            mvn org.owasp:dependency-check-maven:check ^
-                            -Dformat=HTML,CSV,JSON ^
-                            -Ddependency-check.failOnError=false ^
-                            -Ddependency-check.failBuildOnCVSS=11 ^
-                            -Ddependency-check.autoUpdate=false ^
-                            -Ddependency-check.offline=true || exit 0
-                        '''
-                        // Archive the reports
-                        archiveArtifacts artifacts: 'target/dependency-check-report.*', fingerprint: true, allowEmptyArchive: true
-                    }
+                    echo "🔍 Running OWASP Dependency-Check (offline mode)..."
+                    bat """
+                    mvn org.owasp:dependency-check-maven:check ^
+                    -DdataDirectory=%DEP_CHECK_DIR% ^
+                    -Dformat=HTML,CSV,JSON ^
+                    -DautoUpdate=false ^
+                    -Doffline=true ^
+                    -DfailBuildOnCVSS=11 || exit 0
+                    """
+                    // Convert HTML report to PDF (requires wkhtmltopdf installed)
+                    bat "wkhtmltopdf target/dependency-check-report.html target/dependency-check-report.pdf"
                 }
             }
         }
-
-        stage('Test') {
+        stage('Archive OWASP Reports') {
             steps {
-                echo "Running tests (placeholder)"
+                archiveArtifacts artifacts: 'backend/target/dependency-check-report.*', fingerprint: true
             }
         }
-
         stage('Start Services with Docker Compose') {
             steps {
-                script {
-                    echo '🚀 Starting services via Docker Compose...'
-                    bat 'docker-compose up -d --build'
-                }
+                echo "🚀 Starting services via Docker Compose..."
+                bat "docker-compose up -d --build"
             }
         }
     }
-
     post {
         success {
-            echo '✅ Pipeline executed successfully!'
+            echo "✅ Pipeline executed successfully!"
         }
-        failure {
-            echo '❌ Pipeline failed. Please check logs.'
-        }
-        cleanup {
+        always {
             cleanWs()
         }
     }
