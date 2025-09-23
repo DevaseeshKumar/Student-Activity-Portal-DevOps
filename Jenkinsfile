@@ -23,6 +23,22 @@ pipeline {
             }
         }
 
+        // === OWASP Dependency Check Stage ===
+        stage('OWASP Dependency Check') {
+            steps {
+                dir('backend') {
+                    // Run the OWASP scan
+                    bat 'mvn org.owasp:dependency-check-maven:check'
+                }
+            }
+            post {
+                always {
+                    // Archive HTML, CSV, JSON reports
+                    archiveArtifacts artifacts: 'backend/target/dependency-check-report.*', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
