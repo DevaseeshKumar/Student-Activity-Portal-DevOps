@@ -1,18 +1,6 @@
 version: "3.9"
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: mysql
-    ports:
-      - "3307:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: Devaseesh*2005
-      MYSQL_DATABASE: activityportal
-    volumes:
-      - mysql_data:/var/lib/mysql
-    restart: unless-stopped
-
   backend:
     build:
       context: ./backend
@@ -23,7 +11,7 @@ services:
     environment:
       SPRING_APPLICATION_NAME: StudentActivityPortal
       SERVER_PORT: 8080
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/activityportal?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/activityportal
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: Devaseesh*2005
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -35,8 +23,6 @@ services:
       SPRING_MAIL_PASSWORD: shrr vjnz eqgp osnm
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: true
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: true
-    # Use wait-for-it script to ensure MySQL is ready
-    entrypoint: ["./wait-for-it.sh", "mysql:3306", "--", "java", "-jar", "target/backend.jar"]
     restart: unless-stopped
 
   frontend:
@@ -46,6 +32,18 @@ services:
       - "5173:80" # container serves static files on port 80
     depends_on:
       - backend
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: Devaseesh*2005
+      MYSQL_DATABASE: activityportal
+    volumes:
+      - mysql_data:/var/lib/mysql
     restart: unless-stopped
 
 volumes:
