@@ -24,7 +24,7 @@ pipeline {
                     // Run OWASP Dependency-Check
                     bat """
                     mvn org.owasp:dependency-check-maven:check ^
-                        -Dformat=HTML,PDF,JSON ^
+                        -Dformat=ALL ^
                         -DoutputDirectory=${REPORT_DIR} ^
                         -Ddependency-check.failOnError=false ^
                         -Ddependency-check.failBuildOnCVSS=11
