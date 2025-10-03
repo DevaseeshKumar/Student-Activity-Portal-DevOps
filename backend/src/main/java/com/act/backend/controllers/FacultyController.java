@@ -18,6 +18,15 @@ public class FacultyController {
 
     private final FacultyService facultyService;
 
+    // ✅ Helper to ensure faculty is logged in
+    private Faculty checkFacultySession(HttpSession session) {
+        Faculty f = (Faculty) session.getAttribute("faculty");
+        if (f == null) {
+            throw new RuntimeException("Not logged in"); // will be returned as 401 in response handling
+        }
+        return f;
+    }
+
     // ✅ REGISTER (initially unapproved)
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody Faculty faculty) {
@@ -46,39 +55,36 @@ public class FacultyController {
     // ✅ GET PROFILE
     @GetMapping("/me")
     public ResponseEntity<?> getProfile(HttpSession session) {
-        Faculty f = (Faculty) session.getAttribute("faculty");
-        if (f == null) {
-            return ResponseEntity.status(401).body("Session expired. Please log in again.");
+        try {
+            Faculty f = checkFacultySession(session);
+            return ResponseEntity.ok(f);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
         }
-        return ResponseEntity.ok(f);
     }
 
     // ✅ UPDATE PROFILE
     @PutMapping("/update")
     public ResponseEntity<?> updateProfile(HttpSession session, @RequestBody Faculty updated) {
-        Faculty f = (Faculty) session.getAttribute("faculty");
-        if (f == null) {
-            return ResponseEntity.status(401).body("Session expired. Please log in again.");
+        try {
+            Faculty f = checkFacultySession(session);
+            Faculty saved = facultyService.updateProfile(f, updated);
+            session.setAttribute("faculty", saved); // keep session updated
+            return ResponseEntity.ok(saved);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
         }
-
-        Faculty saved = facultyService.updateProfile(f, updated);
-        session.setAttribute("faculty", saved); // keep session updated
-        return ResponseEntity.ok(saved);
     }
 
     // ✅ UPDATE PASSWORD
     @PutMapping("/update-password")
     public ResponseEntity<?> updatePassword(HttpSession session, @RequestBody Map<String, String> body) {
-        Faculty f = (Faculty) session.getAttribute("faculty");
-        if (f == null) {
-            return ResponseEntity.status(401).body("Session expired. Please log in again.");
-        }
-
         try {
+            Faculty f = checkFacultySession(session);
             facultyService.updatePassword(f, body.get("currentPassword"), body.get("newPassword"));
             return ResponseEntity.ok("Password updated successfully");
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body("Password update failed: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Failed: " + e.getMessage());
         }
     }
 
@@ -96,23 +102,19 @@ public class FacultyController {
     // ✅ GET EVENTS ASSIGNED TO FACULTY
     @GetMapping("/events")
     public ResponseEntity<?> getAssignedEvents(HttpSession session) {
-        Faculty f = (Faculty) session.getAttribute("faculty");
-        if (f == null) {
-            return ResponseEntity.status(401).body("Session expired. Please log in again.");
+        try {
+            Faculty f = checkFacultySession(session);
+            return ResponseEntity.ok(facultyService.getAssignedEvents(f));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
         }
-
-        return ResponseEntity.ok(facultyService.getAssignedEvents(f));
     }
 
     // ✅ GET STUDENTS OF AN EVENT
     @GetMapping("/events/{eventId}/students")
     public ResponseEntity<?> getStudentsByEvent(@PathVariable Long eventId, HttpSession session) {
-        Faculty f = (Faculty) session.getAttribute("faculty");
-        if (f == null) {
-            return ResponseEntity.status(401).body("Session expired. Please log in again.");
-        }
-
         try {
+            Faculty f = checkFacultySession(session);
             List<StudentAttendanceDTO> students = facultyService.getStudentsByEvent(f, eventId);
             return ResponseEntity.ok(students);
         } catch (RuntimeException e) {
@@ -126,12 +128,8 @@ public class FacultyController {
                                             @RequestParam Long studentId,
                                             @RequestParam Boolean present,
                                             HttpSession session) {
-        Faculty f = (Faculty) session.getAttribute("faculty");
-        if (f == null) {
-            return ResponseEntity.status(401).body("Session expired. Please log in again.");
-        }
-
         try {
+            Faculty f = checkFacultySession(session);
             facultyService.markAttendance(f, eventId, studentId, present);
             return ResponseEntity.ok("Attendance marked as " + (present ? "Present" : "Absent"));
         } catch (RuntimeException e) {
