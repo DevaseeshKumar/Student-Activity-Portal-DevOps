@@ -249,11 +249,22 @@ public ResponseEntity<?> updateEvent(@PathVariable Long id, @RequestBody Map<Str
     return ResponseEntity.ok(updated);
 }
 @DeleteMapping("/events/{id}")
+@Transactional
 public ResponseEntity<String> deleteEvent(@PathVariable Long id) {
-    if (!eventRepo.existsById(id)) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Event not found");
-    }
-    eventRepo.deleteById(id);
+    // 1️⃣ Fetch the event
+    Event event = eventRepo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Event not found"));
+
+    // 2️⃣ Delete all student_event mappings for this event to avoid FK constraint
+    studentEventRepo.deleteByEvent(event); // You need to define this in StudentEventRepository
+
+    // 3️⃣ Remove faculty assignment (optional, just to be explicit)
+    event.setFaculty(null);
+    eventRepo.save(event); // persist the removal
+
+    // 4️⃣ Delete the event itself
+    eventRepo.delete(event);
+
     return ResponseEntity.ok("Event deleted successfully");
 }
 

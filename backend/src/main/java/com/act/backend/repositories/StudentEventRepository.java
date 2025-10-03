@@ -29,4 +29,5 @@ public interface StudentEventRepository extends JpaRepository<StudentEvent, Long
 
     @Query(value = "SELECT attendance FROM student_event WHERE event_id = :eventId AND student_id = :studentId", nativeQuery = true)
     Boolean findAttendance(Long eventId, Long studentId);
+    void deleteByEvent(Event event);
 }
