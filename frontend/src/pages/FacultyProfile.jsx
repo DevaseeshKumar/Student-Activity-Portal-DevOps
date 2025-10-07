@@ -69,33 +69,32 @@ const FacultyProfile = () => {
       return;
     }
 
-    axios
-      .put(
-        `http://localhost:8080/api/faculty/change-password`,
-        null,
-        {
-          params: {
-            currentPassword: passwordData.currentPassword,
-            newPassword: passwordData.newPassword,
-          },
-          withCredentials: true,
-        }
-      )
-      .then(() => {
-        toast.success("Password updated successfully");
-        setPasswordData({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        });
-      })
-      .catch((err) => {
-        if (err.response?.status === 403) {
-          toast.error("Current password is incorrect");
-        } else {
-          toast.error("Failed to update password");
-        }
-      });
+    axios.put(
+  "http://localhost:8080/api/faculty/update-password",
+  {
+    currentPassword: passwordData.currentPassword,
+    newPassword: passwordData.newPassword,
+  },
+  { withCredentials: true }
+)
+.then(() => {
+  toast.success("Password updated successfully");
+  setPasswordData({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+})
+.catch((err) => {
+  if (err.response?.status === 400) {
+    toast.error(err.response.data || "Failed to update password");
+  } else if (err.response?.status === 401) {
+    toast.error("You are not logged in");
+  } else {
+    toast.error("Something went wrong");
+  }
+});
+
   };
 
   if (!faculty) return <div className="p-4">Loading...</div>;
