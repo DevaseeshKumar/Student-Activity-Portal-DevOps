@@ -3,15 +3,18 @@ pipeline {
 
     environment {
         DEP_CHECK_DIR = "backend/target/dependency-check-data"
-        SONARQUBE_CONTAINER = "sonarqube:latest"
-        TRIVY_CONTAINER = "aquasec/trivy:latest"
-        PROMETHEUS_CONTAINER = "prom/prometheus:latest"
-        GRAFANA_CONTAINER = "grafana/grafana:latest"
-        SONARQUBE_URL = "http://localhost:9000"
-        SONARQUBE_TOKEN = credentials('sonar-token') // Jenkins credential
+        SONAR_SERVER = "SonarQube"       // Jenkins SonarQube server config
     }
 
     stages {
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+                echo "🧹 Workspace cleaned before build."
+            }
+        }
+
         stage('Checkout SCM') {
             steps {
                 checkout scm
@@ -38,38 +41,35 @@ pipeline {
                     -DfailBuildOnCVSS=11 ^
                     || echo "⚠️ Dependency Check completed with warnings"
                     """
-                    bat """
-                    if exist target\\dependency-check-report.html (
-                        wkhtmltopdf target\\dependency-check-report.html target\\dependency-check-report.pdf
-                    )
-                    """
                 }
             }
         }
 
         stage('Static Code Analysis (SonarQube)') {
             steps {
-                echo "📊 Running SonarQube Analysis..."
-                bat """
-                docker run --rm ^
-                    -e SONAR_HOST_URL=%SONARQUBE_URL% ^
-                    -e SONAR_TOKEN=%SONARQUBE_TOKEN% ^
-                    -v "%CD%:/usr/src" ^
-                    sonarsource/sonar-scanner-cli ^
-                    -Dsonar.projectKey=student-activity-portal ^
-                    -Dsonar.sources=backend/src ^
-                    -Dsonar.java.binaries=backend/target/classes ^
-                    -Dsonar.language=java
-                """
+                echo "📊 Running SonarQube Analysis using existing server..."
+                withSonarQubeEnv('SonarQube') { // connects to your already running SonarQube
+                    dir('backend') {
+                        bat "mvn sonar:sonar -Dsonar.projectKey=student-activity-portal"
+                    }
+                }
             }
         }
 
-        stage('Container Image Build & Trivy Scan') {
+        stage('SonarQube Quality Gate') {
             steps {
-                echo "🐳 Building Docker image..."
+                timeout(time: 3, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Build Docker Image & Trivy Scan') {
+            steps {
+                echo "🐳 Building backend Docker image..."
                 bat "docker build -t studentportal-backend ./backend"
 
-                echo "🛡️ Scanning Docker image for vulnerabilities with Trivy..."
+                echo "🛡️ Running Trivy Scan for vulnerabilities..."
                 bat """
                 docker run --rm ^
                     -v /var/run/docker.sock:/var/run/docker.sock ^
@@ -84,7 +84,7 @@ pipeline {
             steps {
                 echo "📈 Starting Prometheus and Grafana..."
                 bat """
-                docker network create monitoring || echo "Network exists"
+                docker network create monitoring || echo "Network already exists"
                 docker run -d --name prometheus --network monitoring -p 9090:9090 prom/prometheus
                 docker run -d --name grafana --network monitoring -p 3000:3000 grafana/grafana
                 """
@@ -93,7 +93,7 @@ pipeline {
 
         stage('Start Application Services') {
             steps {
-                echo "🚀 Starting backend and other services..."
+                echo "🚀 Starting backend and other services via Docker Compose..."
                 bat "docker-compose up -d --build"
             }
         }
@@ -113,7 +113,10 @@ pipeline {
             echo "❌ Pipeline failed! Check Jenkins logs and reports."
         }
         always {
-            cleanWs()
+            node {
+                echo "🧹 Cleaning workspace after build..."
+                cleanWs()
+            }
         }
     }
 }
