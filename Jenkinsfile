@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         DEP_CHECK_DIR = "backend/target/dependency-check-data"
-        SONARQUBE_SERVER = 'SonarQube' // Name of your SonarQube server in Jenkins
+        SONARQUBE_SERVER = 'MySonarQube' // Name of your SonarQube server in Jenkins
     }
     stages {
         stage('Checkout SCM') {
