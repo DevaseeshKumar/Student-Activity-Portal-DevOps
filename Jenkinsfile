@@ -2,75 +2,94 @@ pipeline {
     agent any
 
     environment {
-        SONAR_TOKEN = credentials('sonar-token')  // your SonarQube token
-        GIT_CREDENTIALS = 'github-credentials-id' // Jenkins GitHub credentials ID
+        // Docker image names
+        BACKEND_IMAGE = "studentportal-backend:latest"
+        FRONTEND_IMAGE = "studentportal-frontend:latest"
+        
+        // SonarQube settings
+        SONARQUBE_SERVER = "SonarQube" // Jenkins SonarQube server name
+        SONAR_PROJECT_KEY = "StudentActivityPortal"
+        SONAR_PROJECT_NAME = "StudentActivityPortal"
+        SONAR_PROJECT_VERSION = "1.0"
+    }
+
+    tools {
+        maven 'Maven-3.9.5' // Maven installation in Jenkins
+        nodejs 'NodeJS-20'   // NodeJS installation in Jenkins
     }
 
     stages {
 
-        stage('Checkout SCM') {
+        stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git',
-                    credentialsId: "${GIT_CREDENTIALS}"
-            }
-        }
-
-        stage('Build with Maven') {
-            steps {
-                dir('backend') {  // change 'backend' to folder containing your pom.xml
-                    bat 'mvn clean install'
-                }
+                git branch: 'main', url: 'https://github.com/yourusername/StudentActivityPortal.git'
             }
         }
 
         stage('SonarQube Analysis') {
             environment {
-                PATH = "${tool 'Maven 3'}/bin:${env.PATH}"
+                // Enable Sonar scanner
+                scannerHome = tool 'SonarScanner'
             }
+            steps {
+                withSonarQubeEnv(SONARQUBE_SERVER) {
+                    sh """
+                    # Analyze backend (Java)
+                    mvn clean verify sonar:sonar \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+                        -Dsonar.projectVersion=${SONAR_PROJECT_VERSION} \
+                        -Dsonar.sources=backend/src/main/java \
+                        -Dsonar.java.binaries=backend/target/classes
+                    """
+                }
+            }
+        }
+
+        stage('Build Backend') {
             steps {
                 dir('backend') {
-                    withSonarQubeEnv('MySonarQube') {
-                        bat "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
-                    }
+                    sh 'mvn clean package -DskipTests'
                 }
             }
         }
 
-        stage('SonarQube Quality Gate') {
+        stage('Build Frontend') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                dir('frontend') {
+                    sh 'npm install'
+                    sh 'npm run build'
                 }
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Docker Images') {
             steps {
-                bat 'docker build -t sap-image .'
+                // Build backend Docker image
+                sh "docker build -t ${BACKEND_IMAGE} ./backend"
+                // Build frontend Docker image
+                sh "docker build -t ${FRONTEND_IMAGE} ./frontend"
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Run Docker Compose') {
             steps {
-                bat 'docker stop sap-container || exit 0'
-                bat 'docker rm sap-container || exit 0'
-                bat 'docker run -d --name sap-container -p 8080:8080 sap-image'
+                sh 'docker-compose -f docker-compose.yml down'
+                sh 'docker-compose -f docker-compose.yml up -d --build'
             }
         }
     }
 
     post {
         always {
-            echo 'Cleaning up...'
-            bat 'docker stop sap-container || exit 0'
-            bat 'docker rm sap-container || exit 0'
-        }
-        failure {
-            echo 'Pipeline failed!'
+            echo 'Cleaning up dangling images...'
+            sh 'docker system prune -f'
         }
         success {
-            echo 'Pipeline succeeded!'
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed.'
         }
     }
 }
