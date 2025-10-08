@@ -1,97 +1,101 @@
 pipeline {
     agent any
     environment {
-        SONARQUBE_TOKEN = credentials('sonar-token') // replace with your actual credential ID
+        SONAR_AUTH_TOKEN = credentials('sonar-token')
+        SONAR_HOST_URL = 'http://your-sonarqube-url' // replace with your SonarQube URL
     }
     stages {
+
         stage('Clean Workspace') {
             steps {
-                echo '🧹 Cleaning workspace before build...'
+                echo "🧹 Cleaning workspace before build..."
                 cleanWs()
             }
         }
 
         stage('Checkout SCM') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git']]
-                ])
+                git url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git', branch: 'main'
             }
         }
 
         stage('Build Maven Package') {
             steps {
                 dir('backend') {
-                    bat 'mvn clean package -DskipTests'
+                    bat "mvn clean package -DskipTests"
                 }
             }
         }
 
         stage('Dependency Vulnerability Scan (Dummy)') {
             steps {
-                echo '🔍 Skipping OWASP Dependency-Check (dummy data)...'
+                echo "🔍 Skipping OWASP Dependency-Check (dummy data)..."
                 dir('backend/target') {
-                    writeFile file: 'dependency-check-report.html', text: '<html><body><h1>Dummy OWASP Report</h1></body></html>'
+                    writeFile file: 'dependency-check-report.html', text: '<html><body>Dummy Report</body></html>'
                     writeFile file: 'dependency-check-report.json', text: '{}'
-                    writeFile file: 'dependency-check-report.csv', text: 'File,Dependency,Version,Severity'
                 }
             }
         }
 
         stage('Static Code Analysis (SonarQube)') {
             steps {
-                echo '⚡ Running SonarQube analysis (dummy placeholder)...'
-                // Replace with actual SonarQube commands if needed
-                // dir('backend') { bat "mvn sonar:sonar -Dsonar.login=${SONARQUBE_TOKEN}" }
+                echo "⚡ Running real SonarQube analysis..."
+                dir('backend') {
+                    withSonarQubeEnv('MySonarQubeServer') {
+                        bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=${env.SONAR_HOST_URL} -Dsonar.login=${env.SONAR_AUTH_TOKEN}"
+                    }
+                }
             }
         }
 
         stage('SonarQube Quality Gate') {
             steps {
-                echo '✅ Skipping Quality Gate (dummy data)'
+                timeout(time: 1, unit: 'HOURS') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
 
         stage('Build Docker Image & Trivy Scan') {
             steps {
-                echo '🐳 Building Docker image & skipping Trivy scan (dummy)...'
-                // Example docker build:
-                // bat 'docker build -t student-portal-backend:latest backend/'
+                echo "🐳 Building Docker image..."
+                dir('backend') {
+                    bat "docker build -t student-activity-portal:latest ."
+                    echo "🔒 Optional Trivy scan can be added here if needed..."
+                }
             }
         }
 
         stage('Start Monitoring (Prometheus + Grafana)') {
             steps {
-                echo '📊 Starting Prometheus and Grafana (dummy step)...'
+                echo "📊 Starting Prometheus and Grafana (dummy step)..."
             }
         }
 
         stage('Start Application Services') {
             steps {
-                echo '🚀 Starting application services (dummy step)...'
+                echo "🚀 Starting application services (dummy step)..."
             }
         }
 
         stage('Archive Reports') {
             steps {
-                echo '📁 Archiving reports...'
-                archiveArtifacts artifacts: 'backend/target/dependency-check-report.*', allowEmptyArchive: true
+                echo "📁 Archiving reports..."
+                archiveArtifacts artifacts: 'backend/target/dependency-check-report.html', allowEmptyArchive: true
             }
         }
     }
 
     post {
         always {
-            echo '🧹 Cleaning workspace after build...'
+            echo "🧹 Cleaning workspace after build..."
             cleanWs()
         }
         success {
-            echo '✅ Pipeline finished successfully!'
+            echo "✅ Pipeline finished successfully!"
         }
         failure {
-            echo '❌ Pipeline failed! Check logs for details.'
+            echo "❌ Pipeline failed! Check logs for details."
         }
     }
 }
