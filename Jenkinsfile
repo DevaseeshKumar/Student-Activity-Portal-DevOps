@@ -103,6 +103,7 @@ pipeline {
                 archiveArtifacts artifacts: 'backend/target/dependency-check-report.*', fingerprint: true, allowEmptyArchive: true
             }
         }
+
     }
 
     post {
@@ -110,13 +111,11 @@ pipeline {
             echo "✅ Full DevSecOps Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed! Check Jenkins logs and reports."
+            echo "❌ Pipeline failed! Check Jenkins logs and SonarQube reports."
         }
         always {
-            node {
-                echo "🧹 Cleaning workspace after build..."
-                cleanWs()
-            }
+            echo "🧹 Cleaning workspace after build..."
+            cleanWs()
         }
     }
 }
