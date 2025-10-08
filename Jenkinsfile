@@ -2,40 +2,29 @@ pipeline {
     agent any
 
     environment {
-        SONAR_AUTH_TOKEN = credentials('sonar-token') // Jenkins secret for SonarQube
-        SONAR_HOST_URL = 'http://localhost:9000'      // Your SonarQube server URL
+        SONAR_TOKEN = credentials('sonar-token') // Jenkins credential ID
     }
 
     stages {
-
-        stage('Clean Workspace') {
+        stage('Checkout') {
             steps {
-                echo "🧹 Cleaning workspace before build..."
-                cleanWs()
+                git branch: 'main', url: 'https://github.com/YourUsername/Student-Activity-Portal-DevOps.git'
             }
         }
 
-        stage('Checkout SCM') {
-            steps {
-                git url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git', branch: 'main'
-            }
-        }
-
-        stage('Build Maven Package') {
+        stage('Build with Maven') {
             steps {
                 dir('backend') {
-                    echo "🔨 Building Maven package..."
-                    bat "mvn clean package -DskipTests"
+                    bat 'mvn clean package -DskipTests'
                 }
             }
         }
 
-        stage('Static Code Analysis (SonarQube)') {
+        stage('SonarQube Analysis') {
             steps {
-                echo "⚡ Running SonarQube analysis..."
                 dir('backend') {
-                    withSonarQubeEnv('MySonarQube') {
-                        bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=${env.SONAR_HOST_URL} -Dsonar.login=${env.SONAR_AUTH_TOKEN}"
+                    withSonarQubeEnv('MySonarQube') { // Must match Jenkins SonarQube server name
+                        bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONAR_TOKEN}"
                     }
                 }
             }
@@ -43,7 +32,6 @@ pipeline {
 
         stage('SonarQube Quality Gate') {
             steps {
-                echo "⏱ Waiting for SonarQube Quality Gate..."
                 timeout(time: 1, unit: 'HOURS') {
                     waitForQualityGate abortPipeline: true
                 }
@@ -52,31 +40,32 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo "🐳 Building Docker image..."
-                dir('backend') {
-                    bat "docker build -t student-activity-portal:latest ."
+                script {
+                    bat 'docker build -t student-activity-portal:latest ./backend'
                 }
             }
         }
 
-        stage('Archive Reports') {
+        stage('Run Docker Container') {
             steps {
-                echo "📁 Archiving backend artifact..."
-                archiveArtifacts artifacts: 'backend/target/backend-0.0.1-SNAPSHOT.war', allowEmptyArchive: true
+                script {
+                    bat 'docker run -d -p 8080:8080 --name sap-container student-activity-portal:latest'
+                }
             }
         }
     }
 
     post {
         always {
-            echo "🧹 Cleaning workspace after build..."
-            cleanWs()
+            echo 'Cleaning up...'
+            bat 'docker stop sap-container || exit 0'
+            bat 'docker rm sap-container || exit 0'
         }
         success {
-            echo "✅ Pipeline finished successfully!"
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            echo "❌ Pipeline failed! Check logs for details."
+            echo 'Pipeline failed.'
         }
     }
 }
