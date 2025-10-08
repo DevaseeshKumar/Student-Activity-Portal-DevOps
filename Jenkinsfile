@@ -2,36 +2,44 @@ pipeline {
     agent any
 
     environment {
-        SONAR_TOKEN = credentials('sonar-token')  // Your SonarQube token
+        SONAR_TOKEN = credentials('sonar-token')  // your SonarQube token
+        GIT_CREDENTIALS = 'github-credentials-id' // Jenkins GitHub credentials ID
     }
 
     stages {
+
         stage('Checkout SCM') {
             steps {
-                // Replace 'github-credentials-id' with the actual Jenkins credential ID
                 git branch: 'main',
                     url: 'https://github.com/DevaseeshKumar/Student-Activity-Portal-DevOps.git',
-                    credentialsId: 'github-credentials-id'
+                    credentialsId: "${GIT_CREDENTIALS}"
             }
         }
 
         stage('Build with Maven') {
             steps {
-                bat "mvn clean install"
+                dir('backend') {  // change 'backend' to folder containing your pom.xml
+                    bat 'mvn clean install'
+                }
             }
         }
 
         stage('SonarQube Analysis') {
+            environment {
+                PATH = "${tool 'Maven 3'}/bin:${env.PATH}"
+            }
             steps {
-                withSonarQubeEnv('MySonarQube') {
-                    bat "mvn sonar:sonar -Dsonar.login=${env.SONAR_TOKEN}"
+                dir('backend') {
+                    withSonarQubeEnv('MySonarQube') {
+                        bat "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN}"
+                    }
                 }
             }
         }
 
         stage('SonarQube Quality Gate') {
             steps {
-                timeout(time: 1, unit: 'HOURS') {
+                timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -39,13 +47,15 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat "docker build -t sap-image ."
+                bat 'docker build -t sap-image .'
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                bat "docker run -d --name sap-container -p 8080:8080 sap-image"
+                bat 'docker stop sap-container || exit 0'
+                bat 'docker rm sap-container || exit 0'
+                bat 'docker run -d --name sap-container -p 8080:8080 sap-image'
             }
         }
     }
@@ -53,16 +63,14 @@ pipeline {
     post {
         always {
             echo 'Cleaning up...'
-            bat "docker stop sap-container || exit 0"
-            bat "docker rm sap-container || exit 0"
+            bat 'docker stop sap-container || exit 0'
+            bat 'docker rm sap-container || exit 0'
         }
-
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-
         failure {
             echo 'Pipeline failed!'
+        }
+        success {
+            echo 'Pipeline succeeded!'
         }
     }
 }
