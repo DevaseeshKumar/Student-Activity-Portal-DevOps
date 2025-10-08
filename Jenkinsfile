@@ -27,19 +27,9 @@ pipeline {
             }
         }
 
-        stage('Dependency Vulnerability Scan (Dummy)') {
-            steps {
-                echo "🔍 Skipping OWASP Dependency-Check (dummy data)..."
-                dir('backend/target') {
-                    writeFile file: 'dependency-check-report.html', text: '<html><body>Dummy Report</body></html>'
-                    writeFile file: 'dependency-check-report.json', text: '{}'
-                }
-            }
-        }
-
         stage('Static Code Analysis (SonarQube)') {
             steps {
-                echo "⚡ Running real SonarQube analysis..."
+                echo "⚡ Running SonarQube analysis..."
                 dir('backend') {
                     withSonarQubeEnv('MySonarQubeServer') {
                         bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=${env.SONAR_HOST_URL} -Dsonar.login=${env.SONAR_AUTH_TOKEN}"
@@ -56,12 +46,11 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image & Trivy Scan') {
+        stage('Build Docker Image') {
             steps {
                 echo "🐳 Building Docker image..."
                 dir('backend') {
                     bat "docker build -t student-activity-portal:latest ."
-                    echo "🔒 Optional Trivy scan can be added here if needed..."
                 }
             }
         }
@@ -80,8 +69,8 @@ pipeline {
 
         stage('Archive Reports') {
             steps {
-                echo "📁 Archiving reports..."
-                archiveArtifacts artifacts: 'backend/target/dependency-check-report.html', allowEmptyArchive: true
+                echo "📁 Archiving backend artifact..."
+                archiveArtifacts artifacts: 'backend/target/backend-0.0.1-SNAPSHOT.war', allowEmptyArchive: true
             }
         }
     }
