@@ -1,9 +1,11 @@
 pipeline {
     agent any
+
     environment {
-        SONAR_AUTH_TOKEN = credentials('sonar-token')
-        SONAR_HOST_URL = 'http://your-sonarqube-url' // replace with your SonarQube URL
+        SONAR_AUTH_TOKEN = credentials('sonar-token') // Jenkins secret for SonarQube
+        SONAR_HOST_URL = 'http://localhost:9000'      // Your SonarQube server URL
     }
+
     stages {
 
         stage('Clean Workspace') {
@@ -22,6 +24,7 @@ pipeline {
         stage('Build Maven Package') {
             steps {
                 dir('backend') {
+                    echo "🔨 Building Maven package..."
                     bat "mvn clean package -DskipTests"
                 }
             }
@@ -31,7 +34,7 @@ pipeline {
             steps {
                 echo "⚡ Running SonarQube analysis..."
                 dir('backend') {
-                    withSonarQubeEnv('MySonarQubeServer') {
+                    withSonarQubeEnv('MySonarQube') {
                         bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=${env.SONAR_HOST_URL} -Dsonar.login=${env.SONAR_AUTH_TOKEN}"
                     }
                 }
@@ -40,6 +43,7 @@ pipeline {
 
         stage('SonarQube Quality Gate') {
             steps {
+                echo "⏱ Waiting for SonarQube Quality Gate..."
                 timeout(time: 1, unit: 'HOURS') {
                     waitForQualityGate abortPipeline: true
                 }
@@ -52,18 +56,6 @@ pipeline {
                 dir('backend') {
                     bat "docker build -t student-activity-portal:latest ."
                 }
-            }
-        }
-
-        stage('Start Monitoring (Prometheus + Grafana)') {
-            steps {
-                echo "📊 Starting Prometheus and Grafana (dummy step)..."
-            }
-        }
-
-        stage('Start Application Services') {
-            steps {
-                echo "🚀 Starting application services (dummy step)..."
             }
         }
 
