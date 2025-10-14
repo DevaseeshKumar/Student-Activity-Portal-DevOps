@@ -1,10 +1,13 @@
 package com.act.backend.controllers;
 
 import com.act.backend.dto.StudentAttendanceDTO;
+import com.act.backend.dto.EventDTO;
 import com.act.backend.models.Faculty;
 import com.act.backend.services.FacultyService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,27 +16,26 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/faculty")
-@RequiredArgsConstructor
+// @RequiredArgsConstructor
 public class FacultyController {
 
-    private final FacultyService facultyService;
+    @Autowired
+    private FacultyService facultyService;
 
-    // ✅ Helper to ensure faculty is logged in
+    // Helper: check session
     private Faculty checkFacultySession(HttpSession session) {
         Faculty f = (Faculty) session.getAttribute("faculty");
-        if (f == null) {
-            throw new RuntimeException("Not logged in"); // will be returned as 401 in response handling
-        }
+        if (f == null) throw new RuntimeException("Not logged in");
         return f;
     }
 
-    // ✅ REGISTER (initially unapproved)
+    // Register
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody Faculty faculty) {
         return ResponseEntity.ok(facultyService.register(faculty));
     }
 
-    // ✅ LOGIN (only after approval + password set)
+    // Login
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body, HttpSession session) {
         try {
@@ -45,14 +47,14 @@ public class FacultyController {
         }
     }
 
-    // ✅ LOGOUT
+    // Logout
     @PostMapping("/logout")
     public ResponseEntity<String> logout(HttpSession session) {
         session.invalidate();
         return ResponseEntity.ok("Faculty logged out successfully");
     }
 
-    // ✅ GET PROFILE
+    // Get Profile
     @GetMapping("/me")
     public ResponseEntity<?> getProfile(HttpSession session) {
         try {
@@ -63,20 +65,20 @@ public class FacultyController {
         }
     }
 
-    // ✅ UPDATE PROFILE
+    // Update Profile
     @PutMapping("/update")
     public ResponseEntity<?> updateProfile(HttpSession session, @RequestBody Faculty updated) {
         try {
             Faculty f = checkFacultySession(session);
             Faculty saved = facultyService.updateProfile(f, updated);
-            session.setAttribute("faculty", saved); // keep session updated
+            session.setAttribute("faculty", saved);
             return ResponseEntity.ok(saved);
         } catch (RuntimeException e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }
     }
 
-    // ✅ UPDATE PASSWORD
+    // Update Password
     @PutMapping("/update-password")
     public ResponseEntity<?> updatePassword(HttpSession session, @RequestBody Map<String, String> body) {
         try {
@@ -88,7 +90,7 @@ public class FacultyController {
         }
     }
 
-    // ✅ SET PASSWORD (after approval link)
+    // Set Password (after approval)
     @PostMapping("/set-password")
     public ResponseEntity<?> setPassword(@RequestParam String email, @RequestParam String password) {
         try {
@@ -99,18 +101,19 @@ public class FacultyController {
         }
     }
 
-    // ✅ GET EVENTS ASSIGNED TO FACULTY
+    // Get Assigned Events
     @GetMapping("/events")
     public ResponseEntity<?> getAssignedEvents(HttpSession session) {
         try {
             Faculty f = checkFacultySession(session);
-            return ResponseEntity.ok(facultyService.getAssignedEvents(f));
+            List<EventDTO> events = facultyService.getAssignedEvents(f);
+            return ResponseEntity.ok(events);
         } catch (RuntimeException e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }
     }
 
-    // ✅ GET STUDENTS OF AN EVENT
+    // Get Students for Event
     @GetMapping("/events/{eventId}/students")
     public ResponseEntity<?> getStudentsByEvent(@PathVariable Long eventId, HttpSession session) {
         try {
@@ -122,7 +125,7 @@ public class FacultyController {
         }
     }
 
-    // ✅ MARK ATTENDANCE
+    // Mark Attendance
     @PostMapping("/events/{eventId}/attendance")
     public ResponseEntity<?> markAttendance(@PathVariable Long eventId,
                                             @RequestParam Long studentId,

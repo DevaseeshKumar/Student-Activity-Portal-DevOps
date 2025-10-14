@@ -7,18 +7,15 @@ import "react-toastify/dist/ReactToastify.css";
 
 const ViewStudents = () => {
   const [students, setStudents] = useState([]);
+  const [filteredStudents, setFilteredStudents] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Delete state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Edit state
   const [editStudent, setEditStudent] = useState(null);
-
+  const [viewEventsStudent, setViewEventsStudent] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Session & error handler
   const handleSessionError = (err) => {
     if (err.response?.status === 401) {
       toast.error("Session expired. Redirecting to login...");
@@ -28,13 +25,14 @@ const ViewStudents = () => {
     }
   };
 
-  // ✅ Fetch students
   const fetchStudents = async () => {
     try {
       const res = await axios.get("http://localhost:8080/api/admin/students", {
         withCredentials: true,
       });
-      setStudents(Array.isArray(res.data) ? res.data : []);
+      const studentData = Array.isArray(res.data) ? res.data : [];
+      setStudents(studentData);
+      setFilteredStudents(studentData);
     } catch (err) {
       handleSessionError(err);
     } finally {
@@ -49,13 +47,24 @@ const ViewStudents = () => {
       .catch((err) => handleSessionError(err));
   }, [navigate]);
 
-  // ✅ Attempt delete
+  // Search handler
+  const handleSearch = (e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    const filtered = students.filter(
+      (student) =>
+        student.name.toLowerCase().includes(term.toLowerCase()) ||
+        student.email.toLowerCase().includes(term.toLowerCase()) ||
+        student.department.toLowerCase().includes(term.toLowerCase())
+    );
+    setFilteredStudents(filtered);
+  };
+
   const attemptDelete = (studentId) => {
     setDeleteConfirm(studentId);
     setShowDeleteConfirm(true);
   };
 
-  // ✅ Confirm delete
   const handleConfirmDelete = async () => {
     try {
       await axios.delete(
@@ -71,12 +80,19 @@ const ViewStudents = () => {
     }
   };
 
-  // ✅ Update student
   const handleUpdate = async () => {
     try {
+      const payload = {
+        name: editStudent.name,
+        email: editStudent.email,
+        phone: editStudent.phone,
+        department: editStudent.department,
+        gender: editStudent.gender,
+      };
+
       await axios.put(
         `http://localhost:8080/api/admin/students/${editStudent.id}`,
-        editStudent,
+        payload,
         { withCredentials: true }
       );
       toast.success("Student updated successfully");
@@ -92,77 +108,103 @@ const ViewStudents = () => {
       <AdminNavbar />
       <ToastContainer position="top-center" autoClose={3000} />
       <div className="p-6 min-h-screen bg-gray-100">
-        <h2 className="text-2xl font-semibold mb-4 text-center text-blue-700">
-          All Registered Students
+        {/* Total Count */}
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
+          Total Students: {students.length}
         </h2>
+
+        {/* Search Bar */}
+        <div className="flex justify-center mb-6">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={handleSearch}
+            placeholder="Search by name, email, or department..."
+            className="w-full max-w-md border rounded-xl p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+          />
+        </div>
 
         {loading ? (
           <p className="text-center text-indigo-600">Loading students...</p>
-        ) : students.length === 0 ? (
+        ) : filteredStudents.length === 0 ? (
           <p className="text-center text-red-500">No students found.</p>
         ) : (
-          <div className="overflow-x-auto shadow-md rounded-lg">
-            <table className="min-w-full bg-white border">
-              <thead className="bg-blue-600 text-white">
-  <tr>
-    <th className="py-3 px-4 border">ID</th>
-    <th className="py-3 px-4 border">Name</th>
-    <th className="py-3 px-4 border">Email</th>
-    <th className="py-3 px-4 border">Phone</th>
-    <th className="py-3 px-4 border">Gender</th>
-    <th className="py-3 px-4 border">Department</th>
-    <th className="py-3 px-4 border">Registered Events</th>
-    <th className="py-3 px-4 border text-center">Actions</th>
-  </tr>
-</thead>
-              <tbody>
-                {students.map((student, index) => (
-                  <tr key={student.id || index} className="hover:bg-gray-100 transition">
-                    <td className="py-2 px-4 border text-center">{index + 1}</td>
-                    <td className="py-2 px-4 border">{student.name}</td>
-                    <td className="py-2 px-4 border">{student.email}</td>
-                    <td className="py-2 px-4 border">{student.phone}</td>
-                    <td className="py-2 px-4 border">{student.gender}</td>
-                    <td className="py-2 px-4 border">{student.department}</td>
-                    <td className="py-2 px-4 border text-center">{student.eventCount}</td> 
-                    <td className="py-2 px-4 border text-center space-x-2">
-                      <button
-                        onClick={() => setEditStudent({ ...student })}
-                        className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => attemptDelete(student.id)}
-                        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredStudents.map((student, index) => (
+              <div
+                key={student.id || index}
+                className="bg-white rounded-2xl shadow-lg p-5 flex flex-col justify-between transition-transform transform hover:-translate-y-2 hover:scale-105 duration-300"
+              >
+                {/* Card Body */}
+                <div className="flex flex-col gap-2 text-gray-700 text-sm">
+                  <p>
+                    <strong>Name:</strong> {student.name}
+                  </p>
+                  <p>
+                    <strong>Email:</strong> {student.email}
+                  </p>
+                  <p>
+                    <strong>Phone:</strong> {student.phone}
+                  </p>
+                  <p>
+                    <strong>Department:</strong> {student.department}
+                  </p>
+                  <p>
+                    <strong>Gender:</strong> {student.gender}
+                  </p>
+                  <p>
+                    <strong>Registered Events:</strong>{" "}
+                    {student.registeredEvents?.length || 0}
+                  </p>
+                </div>
+
+                {/* Card Actions */}
+                <div className="flex flex-col gap-2 mt-4">
+                  <div className="flex justify-between gap-2">
+                    <button
+                      onClick={() => setEditStudent({ ...student })}
+                      className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-medium transition"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => attemptDelete(student.id)}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setViewEventsStudent(student)}
+                    className="mt-2 w-full px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 font-medium transition"
+                  >
+                    View Events
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* ✅ Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-md w-96 text-center">
-            <h3 className="text-lg font-semibold mb-4 text-red-600">Confirm Delete</h3>
+          <div className="bg-white p-6 rounded-xl shadow-md w-96 text-center">
+            <h3 className="text-lg font-bold mb-4 text-red-600">
+              Confirm Delete
+            </h3>
             <p className="mb-6">Are you sure you want to delete this student?</p>
             <div className="flex justify-center gap-4">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+                className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 Yes, Delete
               </button>
@@ -171,31 +213,39 @@ const ViewStudents = () => {
         </div>
       )}
 
-      {/* ✅ Edit Modal */}
+      {/* Edit Modal */}
       {editStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-md w-96">
-            <h3 className="text-lg font-semibold mb-4">Edit Student</h3>
+          <div className="bg-white p-6 rounded-xl shadow-md w-96">
+            <h3 className="text-xl font-bold mb-4 text-center text-gray-800">
+              Edit Student
+            </h3>
             <div className="space-y-3">
               <input
                 type="text"
                 value={editStudent.name}
-                onChange={(e) => setEditStudent({ ...editStudent, name: e.target.value })}
-                className="w-full border p-2 rounded"
+                onChange={(e) =>
+                  setEditStudent({ ...editStudent, name: e.target.value })
+                }
+                className="w-full border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
                 placeholder="Name"
               />
               <input
                 type="email"
                 value={editStudent.email}
-                onChange={(e) => setEditStudent({ ...editStudent, email: e.target.value })}
-                className="w-full border p-2 rounded"
+                onChange={(e) =>
+                  setEditStudent({ ...editStudent, email: e.target.value })
+                }
+                className="w-full border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
                 placeholder="Email"
               />
               <input
                 type="text"
                 value={editStudent.phone}
-                onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })}
-                className="w-full border p-2 rounded"
+                onChange={(e) =>
+                  setEditStudent({ ...editStudent, phone: e.target.value })
+                }
+                className="w-full border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
                 placeholder="Phone"
               />
               <input
@@ -204,7 +254,7 @@ const ViewStudents = () => {
                 onChange={(e) =>
                   setEditStudent({ ...editStudent, department: e.target.value })
                 }
-                className="w-full border p-2 rounded"
+                className="w-full border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
                 placeholder="Department"
               />
               <select
@@ -212,7 +262,7 @@ const ViewStudents = () => {
                 onChange={(e) =>
                   setEditStudent({ ...editStudent, gender: e.target.value })
                 }
-                className="w-full border p-2 rounded"
+                className="w-full border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
               >
                 <option value="">Select Gender</option>
                 <option value="Male">Male</option>
@@ -223,15 +273,47 @@ const ViewStudents = () => {
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => setEditStudent(null)}
-                className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+                className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdate}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 font-medium"
               >
                 Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Events Modal */}
+      {viewEventsStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-md w-96 max-h-[80vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-4 text-center text-gray-800">
+              {viewEventsStudent.name}'s Registered Events
+            </h3>
+            {viewEventsStudent.registeredEvents &&
+viewEventsStudent.registeredEvents.length > 0 ? (
+  <ul className="list-disc list-inside text-gray-700">
+    {viewEventsStudent.registeredEvents.map((event, idx) => (
+      <li key={idx}>{event}</li>
+    ))}
+  </ul>
+) : (
+  <p className="text-center text-red-500">
+    No events registered.
+  </p>
+)}
+
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => setViewEventsStudent(null)}
+                className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-medium"
+              >
+                Close
               </button>
             </div>
           </div>

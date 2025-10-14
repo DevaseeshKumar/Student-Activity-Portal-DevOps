@@ -1,0 +1,104 @@
+{
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "type": "piechart",
+      "title": "HikariCP Active Connections",
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{name=~\"HikariPool-.*\"}",
+          "legendFormat": "{{pool}}",
+          "refId": "A"
+        }
+      ],
+      "id": 1
+    },
+    {
+      "type": "piechart",
+      "title": "HikariCP Idle Connections",
+      "targets": [
+        {
+          "expr": "hikaricp_connections_idle{name=~\"HikariPool-.*\"}",
+          "legendFormat": "{{pool}}",
+          "refId": "A"
+        }
+      ],
+      "id": 2
+    },
+    {
+      "type": "piechart",
+      "title": "Used JVM Memory",
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes",
+          "legendFormat": "{{id}}",
+          "refId": "A"
+        }
+      ],
+      "id": 3
+    },
+    {
+      "type": "piechart",
+      "title": "JVM Live Threads",
+      "targets": [
+        {
+          "expr": "jvm_threads_live_threads{instance=\"host.docker.internal:8080\", job=\"student-portal-backend\"}",
+          "legendFormat": "Live Threads",
+          "refId": "A"
+        }
+      ],
+      "id": 4
+    },
+    {
+      "type": "piechart",
+      "title": "System CPU Usage",
+      "targets": [
+        {
+          "expr": "system_cpu_usage{instance=\"host.docker.internal:8080\", job=\"student-portal-backend\"}",
+          "legendFormat": "CPU Usage",
+          "refId": "A"
+        }
+      ],
+      "id": 5
+    },
+    {
+      "type": "piechart",
+      "title": "Process CPU Usage",
+      "targets": [
+        {
+          "expr": "process_cpu_usage{instance=\"host.docker.internal:8080\", job=\"student-portal-backend\"}",
+          "legendFormat": "Process CPU",
+          "refId": "A"
+        }
+      ],
+      "id": 6
+    },
+    {
+      "type": "piechart",
+      "title": "Active JDBC Connections",
+      "targets": [
+        {
+          "expr": "jdbc_connections_active{name=\"dataSource\"}",
+          "legendFormat": "Active Connections",
+          "refId": "A"
+        }
+      ],
+      "id": 7
+    },
+    {
+      "type": "piechart",
+      "title": "Idle JDBC Connections",
+      "targets": [
+        {
+          "expr": "jdbc_connections_idle{name=\"dataSource\"}",
+          "legendFormat": "Idle Connections",
+          "refId": "A"
+        }
+      ],
+      "id": 8
+    }
+  ],
+  "schemaVersion": 36,
+  "title": "Spring Boot Metrics Pie Dashboard",
+  "version": 1
+}

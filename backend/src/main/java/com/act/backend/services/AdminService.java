@@ -1,92 +1,43 @@
 package com.act.backend.services;
 
-import com.act.backend.dto.LoginRequest;
+import com.act.backend.dto.*;
 import com.act.backend.models.*;
-import com.act.backend.repositories.*;
+import jakarta.servlet.http.HttpSession;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-import java.util.*;
+public interface AdminService {
 
-@Service
-@RequiredArgsConstructor
-public class AdminService {
+    // Admin
+    Optional<Admin> authenticate(String email, String password);
+    Admin updateProfile(Admin admin, Admin updated);
+    boolean updatePassword(Admin admin, String currentPassword, String newPassword);
+    Admin getAdminFromSession(HttpSession session);
+    void checkAdminSession(HttpSession session);
 
-    private final AdminRepository adminRepo;
-    private final FacultyRepository facultyRepo;
-    private final EventRepository eventRepo;
-    private final StudentRepository studentRepo;
-    private final EmailService emailService;
+    // Faculty
+    List<Faculty> getUnapprovedFaculties();
+    List<FacultyDTO> getAllFaculties();
+    String approveFaculty(Long id);
+    String rejectFaculty(Long id, String reason);
+    FacultyDTO updateFaculty(Long id, FacultyDTO updatedFaculty);
+    String deleteFaculty(Long facultyId, Long replacementFacultyId);
 
-    // ✅ Authenticate Admin
-    public Optional<Admin> authenticate(String email, String password) {
-        return adminRepo.findByEmail(email)
-                .filter(admin -> admin.getPassword().equals(password));
-    }
+    // Student
+    // Student
+List<StudentWithEventsDTO> getAllStudentsWithEvents();
 
-    // ✅ Update profile
-    public Admin updateProfile(Admin admin, Admin updated) {
-        admin.setUsername(updated.getUsername());
-        admin.setEmail(updated.getEmail());
-        return adminRepo.save(admin);
-    }
 
-    // ✅ Update password
-    public boolean updatePassword(Admin admin, String currentPassword, String newPassword) {
-        if (!admin.getPassword().equals(currentPassword)) {
-            return false;
-        }
-        admin.setPassword(newPassword);
-        adminRepo.save(admin);
-        return true;
-    }
+    Student updateStudent(Long id, Student updatedStudent);
+    String deleteStudent(Long id);
 
-    // ✅ Faculties
-    public List<Faculty> getUnapprovedFaculties() {
-        return facultyRepo.findAll().stream().filter(f -> !f.isApproved()).toList();
-    }
-
-    public String approveFaculty(Long id) {
-        Faculty f = facultyRepo.findById(id).orElseThrow();
-        f.setApproved(true);
-        facultyRepo.save(f);
-        emailService.sendEmail(
-                f.getEmail(),
-                "Faculty Approval",
-                "Congratulations " + f.getName() + ", your account has been approved.\n" +
-                        "Set your password here: http://localhost:5173/set-faculty-password?email=" + f.getEmail()
-        );
-        return "Faculty approved and email sent";
-    }
-
-    public String rejectFaculty(Long id, String reason) {
-        Faculty f = facultyRepo.findById(id).orElseThrow();
-        facultyRepo.delete(f);
-        emailService.sendEmail(
-                f.getEmail(),
-                "Faculty Rejected",
-                "Sorry " + f.getName() + ", your account was rejected.\nReason: " + reason
-        );
-        return "Faculty rejected and email sent";
-    }
-
-    public List<Faculty> getAllFaculties() {
-        return facultyRepo.findAll();
-    }
-
-    // ✅ Students
-    public List<Student> getAllStudents() {
-        return studentRepo.findAll();
-    }
-
-    // ✅ Events
-    public Event addEvent(Event e) {
-        return eventRepo.save(e);
-    }
-
-    public List<Event> getAllEvents() {
-        return eventRepo.findAll();
-    }
+    // Event
+    List<EventDTO> getAllEvents();
+    Event addEvent(Map<String, Object> body);
+    Event updateEvent(Long id, Map<String, Object> body);
+    String deleteEvent(Long id);
+    List<StudentAttendanceDTO> getStudentsByEvent(Long eventId);
+    String reassignEvent(Long eventId, Long newFacultyId);
 }
