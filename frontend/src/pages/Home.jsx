@@ -3,7 +3,7 @@ import MainNavbar from "../components/MainNavbar";
 import Footer from "../components/Footer";
 import { Link } from "react-router-dom";
 import { FaUserTie, FaChalkboardTeacher, FaUserGraduate } from "react-icons/fa";
-
+//Home
 const Home = () => {
   return (
     <>
