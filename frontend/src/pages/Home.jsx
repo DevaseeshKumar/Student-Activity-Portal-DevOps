@@ -2,7 +2,7 @@ import React from "react";
 import MainNavbar from "../components/MainNavbar";
 import Footer from "../components/Footer";
 import { Link } from "react-router-dom";
-import { FaUserGraduate } from "react-icons/fa";
+import { FaUserTie, FaChalkboardTeacher, FaUserGraduate } from "react-icons/fa";
 
 const Home = () => {
   return (
