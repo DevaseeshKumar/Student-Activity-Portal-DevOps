@@ -474,3 +474,4 @@ const ViewAllFaculty = () => {
 };
 
 export default ViewAllFaculty;
+//test
