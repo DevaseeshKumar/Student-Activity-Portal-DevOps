@@ -221,13 +221,10 @@ public String deleteStudent(Long id) {
         event.setDate((String) body.get("date"));
         event.setDescription((String) body.get("description"));
 
-        Long facultyId = body.get("facultyId") != null ? Long.valueOf(body.get("facultyId").toString()) : null;
-        if (facultyId != null) {
-            Faculty faculty = facultyRepo.findById(facultyId).orElse(null);
-            if (faculty != null) {
-                event.setFaculty(faculty);
-                emailService.sendEmail(faculty.getEmail(), "New Event Assigned", "You have been assigned to event: " + event.getName() + " on " + event.getDate());
-            }
+        event.setFaculty(null);
+        if (body.containsKey("facultyId")) {
+            Long facultyId = body.get("facultyId") != null ? Long.valueOf(body.get("facultyId").toString()) : null;
+            event.setFaculty(facultyId != null ? facultyRepo.findById(facultyId).orElse(null) : null);
         }
 
         return eventRepo.save(event);
