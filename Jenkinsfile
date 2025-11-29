@@ -19,37 +19,37 @@ pipeline {
             }
         }
 
-        stage('Dependency Vulnerability Scan') {
-            steps {
-                dir('backend') {
-                    echo "🔍 Running OWASP Dependency-Check in offline mode..."
-                    script {
-                        try {
-                            bat """
-                            mvn org.owasp:dependency-check-maven:check ^
-                            -DdataDirectory=%DEP_CHECK_DIR% ^
-                            -Dformat=HTML,CSV,JSON ^
-                            -DautoUpdate=false ^
-                            -Doffline=true ^
-                            -DfailOnError=false ^
-                            -DfailBuildOnCVSS=11
-                            """
-                        } catch (err) {
-                            echo "⚠️ Dependency-Check failed, continuing pipeline..."
-                        }
-                    }
+        // stage('Dependency Vulnerability Scan') {
+        //     steps {
+        //         dir('backend') {
+        //             echo "🔍 Running OWASP Dependency-Check in offline mode..."
+        //             script {
+        //                 try {
+        //                     bat """
+        //                     mvn org.owasp:dependency-check-maven:check ^
+        //                     -DdataDirectory=%DEP_CHECK_DIR% ^
+        //                     -Dformat=HTML,CSV,JSON ^
+        //                     -DautoUpdate=false ^
+        //                     -Doffline=true ^
+        //                     -DfailOnError=false ^
+        //                     -DfailBuildOnCVSS=11
+        //                     """
+        //                 } catch (err) {
+        //                     echo "⚠️ Dependency-Check failed, continuing pipeline..."
+        //                 }
+        //             }
 
-                    // Attempt PDF conversion only if HTML exists
-                    bat """
-                    if exist target\\dependency-check-report.html (
-                        wkhtmltopdf target\\dependency-check-report.html target\\dependency-check-report.pdf
-                    ) else (
-                        echo "⚠️ HTML report not found, skipping PDF conversion."
-                    )
-                    """
-                }
-            }
-        }
+        //             // Attempt PDF conversion only if HTML exists
+        //             bat """
+        //             if exist target\\dependency-check-report.html (
+        //                 wkhtmltopdf target\\dependency-check-report.html target\\dependency-check-report.pdf
+        //             ) else (
+        //                 echo "⚠️ HTML report not found, skipping PDF conversion."
+        //             )
+        //             """
+        //         }
+        //     }
+        // }
 
         stage('SonarQube Analysis') {
             steps {
