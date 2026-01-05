@@ -52,14 +52,22 @@ pipeline {
         // }
 
         stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                    dir('backend') {
-                        bat "mvn sonar:sonar -Dsonar.projectKey=StudentActivityPortal -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN"
-                    }
-                }
+    steps {
+        withSonarQubeEnv('MySonarQube') {
+            dir('backend') {
+                bat """
+                sonar-scanner ^
+                -Dsonar.projectKey=StudentActivityPortal ^
+                -Dsonar.sources=src ^
+                -Dsonar.java.binaries=target ^
+                -Dsonar.host.url=%SONAR_HOST_URL% ^
+                -Dsonar.login=%SONAR_AUTH_TOKEN%
+                """
             }
         }
+    }
+}
+
 
         stage('Archive OWASP Reports') {
             steps {
