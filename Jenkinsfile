@@ -56,15 +56,17 @@ pipeline {
         withSonarQubeEnv('MySonarQube') {
             dir('backend') {
                 bat """
-                mvn sonar:sonar ^
+                "%SONAR_SCANNER_HOME%\\bin\\sonar-scanner.bat" ^
                 -Dsonar.projectKey=StudentActivityPortal ^
-                -Dsonar.host.url=%SONAR_HOST_URL% ^
+                -Dsonar.sources=src ^
+                -Dsonar.java.binaries=target ^
                 -Dsonar.login=%SONAR_AUTH_TOKEN%
                 """
             }
         }
     }
 }
+
 
 
         stage('Archive OWASP Reports') {
