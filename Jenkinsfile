@@ -54,14 +54,17 @@ pipeline {
         stage('SonarQube Analysis') {
     steps {
         withSonarQubeEnv('MySonarQube') {
-            dir('backend') {
-                bat """
-                "%SONAR_SCANNER_HOME%\\bin\\sonar-scanner.bat" ^
-                -Dsonar.projectKey=StudentActivityPortal ^
-                -Dsonar.sources=src ^
-                -Dsonar.java.binaries=target ^
-                -Dsonar.login=%SONAR_AUTH_TOKEN%
-                """
+            script {
+                def scannerHome = tool 'SonarScanner'
+                dir('backend') {
+                    bat """
+                    "${scannerHome}\\bin\\sonar-scanner.bat" ^
+                    -Dsonar.projectKey=StudentActivityPortal ^
+                    -Dsonar.sources=src ^
+                    -Dsonar.java.binaries=target ^
+                    -Dsonar.login=%SONAR_AUTH_TOKEN%
+                    """
+                }
             }
         }
     }
