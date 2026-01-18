@@ -5,6 +5,6 @@ WORKDIR /app
 
 COPY target/*.war app.war
 
-EXPOSE 8080
+EXPOSE 8000
 
 ENTRYPOINT ["java", "-jar", "app.war"]
